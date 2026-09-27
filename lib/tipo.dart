@@ -29,7 +29,7 @@ class TipoAzul extends Tipo {
 class TipoRojo extends Tipo {
   const TipoRojo({super.puntuaciones = const {1: 6, 2: 4, 3: 2}})
     : super(
-        color: Colors.red,
+        color: const Color.fromARGB(255, 255, 17, 0),
         descripcion: 'Todos los números de la zona deben ser distintos.',
       );
 
@@ -73,10 +73,3 @@ class TipoVerde extends Tipo {
   bool puedeAgregarValor(List<int> actuales, int posible) => true;
 }
 
-class TipoNaranja extends Tipo {
-  const TipoNaranja({super.puntuaciones = const {}})
-    : super(color: Colors.orange, descripcion: 'Región naranja del tablero.');
-
-  @override
-  bool puedeAgregarValor(List<int> actuales, int posible) => true;
-}

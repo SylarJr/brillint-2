@@ -314,7 +314,7 @@ class _Leyenda extends StatelessWidget {
       TipoVerde(),
       TipoAzul(),
       TipoMorado(),
-      TipoNaranja(),
+      TipoRojo(),
     ];
 
     return Wrap(
