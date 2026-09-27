@@ -1,10 +1,12 @@
 import 'tipo.dart';
 
 abstract class Region {
+  const Region({required this.tipo});
+
   final Tipo tipo;
 }
 
-class Coordenada{
+class Coordenada {
   final int x;
   final int y;
 

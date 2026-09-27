@@ -11,20 +11,19 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_application_1/main.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
+  testWidgets('muestra el tablero 7x7 y selecciona una casilla', (
+    WidgetTester tester,
+  ) async {
     await tester.pumpWidget(const MyApp());
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    expect(find.byType(InkWell), findsNWidgets(49));
+    expect(find.byKey(const ValueKey('celda-0-0')), findsOneWidget);
+    expect(find.byKey(const ValueKey('celda-6-6')), findsOneWidget);
+    expect(find.text('FILA 1  /  COLUMNA 1'), findsOneWidget);
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('celda-1-2')));
+    await tester.pumpAndSettle();
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    expect(find.text('FILA 2  /  COLUMNA 3'), findsOneWidget);
   });
 }
