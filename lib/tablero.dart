@@ -27,7 +27,7 @@ class BrilliantBoard {
   static const int boardSize = 7;
   static const Set<(int row, int col)> requiredMarkedPositions = {
     (0, 2),
-    (1, 4),
+    (1, 5),
     (3, 1),
     (3, 4),
     (5, 2),

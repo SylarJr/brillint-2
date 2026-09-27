@@ -21,7 +21,7 @@ void main() {
       );
 
       sampleLayout[0][2] = RegionColor.azulClaro;
-      sampleLayout[1][4] = RegionColor.morado;
+      sampleLayout[1][5] = RegionColor.morado;
       sampleLayout[3][1] = RegionColor.rojo;
       sampleLayout[3][4] = RegionColor.verde;
       sampleLayout[5][2] = RegionColor.morado;
@@ -67,7 +67,7 @@ void main() {
 
       // Asignar 3 de las 6 casillas marcadas (50%)
       board.setCellValue(0, 2, 4);
-      board.setCellValue(1, 4, 7);
+      board.setCellValue(1, 5, 7);
       board.setCellValue(3, 1, 1);
 
       expect(board.completionProgress, equals(0.5));

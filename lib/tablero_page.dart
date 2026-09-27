@@ -65,26 +65,55 @@ class TableroPage extends StatelessWidget {
                       height: 1.1,
                     ),
                   ),
+                  BlocBuilder<BoardBloc, BoardState>(
+                    builder: (context, state) => state.listoParaJugar
+                        ? Container(
+                            key: const ValueKey('banner-listo'),
+                            margin: const EdgeInsets.only(top: 16),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 15,
+                              vertical: 12,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE0F0E8),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Text(
+                              'Listo para jugar',
+                              style: TextStyle(
+                                color: Color(0xFF183F38),
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          )
+                        : const SizedBox.shrink(),
+                  ),
                   const SizedBox(height: 20),
                   const _MatrizTablero(),
+                  const SizedBox(height: 16),
+                  const _PanelNumeros(),
                   const SizedBox(height: 18),
-                  BlocBuilder<TableroBloc, TableroState>(
+                  BlocBuilder<BoardBloc, BoardState>(
                     builder: (context, state) {
-                      final (fila, columna) = state.coordenadaSeleccionada;
-                      final tipo = state.matriz[fila][columna];
+                      final casilla = state.casillaSeleccionada;
+                      final tipo = casilla == null
+                          ? null
+                          : state.matriz[casilla.$1][casilla.$2];
                       return Row(
                         children: [
                           Container(
                             width: 10,
                             height: 10,
                             decoration: BoxDecoration(
-                              color: tipo.color,
+                              color: tipo?.color ?? const Color(0xFF61726C),
                               shape: BoxShape.circle,
                             ),
                           ),
                           const SizedBox(width: 9),
                           Text(
-                            'FILA ${fila + 1}  /  COLUMNA ${columna + 1}',
+                            casilla == null
+                                ? '${state.asignaciones.length} DE 6 NÚMEROS COLOCADOS'
+                                : 'FILA ${casilla.$1 + 1}  /  COLUMNA ${casilla.$2 + 1}',
                             style: const TextStyle(
                               color: Color(0xFF52635D),
                               fontSize: 11,
@@ -94,7 +123,7 @@ class TableroPage extends StatelessWidget {
                           ),
                           const Spacer(),
                           Text(
-                            _nombreTipo(tipo),
+                            tipo == null ? '' : _nombreTipo(tipo),
                             style: const TextStyle(
                               color: Color(0xFF18332D),
                               fontSize: 11,
@@ -108,6 +137,18 @@ class TableroPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 27),
                   const _Leyenda(),
+                  const SizedBox(height: 22),
+                  BlocBuilder<BoardBloc, BoardState>(
+                    builder: (context, state) => FilledButton(
+                      key: const ValueKey('boton-listo'),
+                      onPressed: state.completo && !state.listoParaJugar
+                          ? () => context.read<BoardBloc>().add(
+                              const BoardReadyPressed(),
+                            )
+                          : null,
+                      child: const Text('Listo'),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -125,7 +166,7 @@ class _MatrizTablero extends StatelessWidget {
   Widget build(BuildContext context) {
     return AspectRatio(
       aspectRatio: 1,
-      child: BlocBuilder<TableroBloc, TableroState>(
+      child: BlocBuilder<BoardBloc, BoardState>(
         builder: (context, state) => GridView.builder(
           physics: const NeverScrollableScrollPhysics(),
           itemCount: 49,
@@ -138,8 +179,9 @@ class _MatrizTablero extends StatelessWidget {
             final fila = index ~/ 7;
             final columna = index % 7;
             final tipo = state.matriz[fila][columna];
-            final seleccionada =
-                state.coordenadaSeleccionada == (fila, columna);
+            final marcada = state.esCasillaMarcada(fila, columna);
+            final numero = state.numeroEn(fila, columna);
+            final seleccionada = state.casillaSeleccionada == (fila, columna);
 
             return Semantics(
               label:
@@ -153,8 +195,14 @@ class _MatrizTablero extends StatelessWidget {
                   border: Border.all(
                     color: seleccionada
                         ? const Color(0xFF183F38)
+                        : marcada
+                        ? const Color(0xFF183F38)
                         : Colors.white,
-                    width: seleccionada ? 3 : 1.5,
+                    width: seleccionada
+                        ? 3
+                        : marcada
+                        ? 2
+                        : 1.5,
                   ),
                   boxShadow: seleccionada
                       ? const [
@@ -171,8 +219,28 @@ class _MatrizTablero extends StatelessWidget {
                   child: InkWell(
                     key: ValueKey('celda-$fila-$columna'),
                     borderRadius: BorderRadius.circular(8),
-                    onTap: () => context.read<TableroBloc>().add(
-                      SeleccionarCasilla(fila, columna),
+                    onTap: marcada
+                        ? () => context.read<BoardBloc>().add(
+                            BoardCellSelected(fila, columna),
+                          )
+                        : null,
+                    child: Center(
+                      child: numero == null
+                          ? marcada
+                                ? const Icon(
+                                    Icons.add_rounded,
+                                    color: Color(0x99183F38),
+                                    size: 17,
+                                  )
+                                : const SizedBox.shrink()
+                          : Text(
+                              '$numero',
+                              style: const TextStyle(
+                                color: Color(0xFF18332D),
+                                fontSize: 18,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
                     ),
                   ),
                 ),
@@ -181,6 +249,57 @@ class _MatrizTablero extends StatelessWidget {
           },
         ),
       ),
+    );
+  }
+}
+
+class _PanelNumeros extends StatelessWidget {
+  const _PanelNumeros();
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<BoardBloc, BoardState>(
+      builder: (context, state) {
+        final casilla = state.casillaSeleccionada;
+        if (casilla == null || state.numeroEn(casilla.$1, casilla.$2) != null) {
+          return const SizedBox.shrink();
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'ELIGE UN NÚMERO',
+              style: TextStyle(
+                color: Color(0xFF52635D),
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.9,
+              ),
+            ),
+            const SizedBox(height: 9),
+            Row(
+              children: BoardState.numerosPermitidos.map((numero) {
+                final disponible = state.numerosDisponibles.contains(numero);
+                return Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: OutlinedButton(
+                      key: ValueKey('numero-$numero'),
+                      onPressed: disponible
+                          ? () => context.read<BoardBloc>().add(
+                              BoardNumberAssigned(numero),
+                            )
+                          : null,
+                      child: Text('$numero'),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+        );
+      },
     );
   }
 }
