@@ -47,7 +47,7 @@ void main() {
         final botonUno = tester.widget<OutlinedButton>(
           find.byKey(const ValueKey('numero-1')),
         );
-        expect(botonUno.onPressed, isNull);
+        expect(botonUno.onPressed, isNotNull);
       }
 
       final numero = index + 1;
@@ -65,8 +65,31 @@ void main() {
           find.descendant(of: primeraCasilla, matching: find.text('1')),
           findsOneWidget,
         );
+        await tester.tap(primeraCasilla);
+        await tester.pumpAndSettle();
       }
     }
+
+    final origen = find.byKey(const ValueKey('celda-0-2'));
+    final destino = find.byKey(const ValueKey('celda-6-4'));
+    await tester.ensureVisible(origen);
+    await tester.tap(origen);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Toca una casilla vacía'), findsNothing);
+    await tester.ensureVisible(destino);
+    await tester.tap(destino);
+    await tester.pumpAndSettle();
+    final botonNumeroUno = find.byKey(const ValueKey('numero-1'));
+    await tester.ensureVisible(botonNumeroUno);
+    await tester.tap(botonNumeroUno);
+    await tester.pumpAndSettle();
+
+    final bloc = tester
+        .element(find.byKey(const ValueKey('boton-listo')))
+        .read<BoardBloc>();
+    expect(bloc.state.numeroEn(0, 2), 6);
+    expect(bloc.state.numeroEn(6, 4), 1);
+    expect(bloc.state.asignaciones.values.toSet(), {1, 2, 3, 4, 5, 6});
 
     final botonListo = tester.widget<FilledButton>(
       find.byKey(const ValueKey('boton-listo')),
@@ -79,9 +102,6 @@ void main() {
 
     expect(find.text('Listo para jugar'), findsOneWidget);
 
-    final bloc = tester
-        .element(find.byKey(const ValueKey('boton-listo')))
-        .read<BoardBloc>();
     final botonTirar = find.byKey(const ValueKey('boton-tirar-dados'));
     await tester.ensureVisible(botonTirar);
     await tester.tap(botonTirar);
@@ -105,6 +125,11 @@ void main() {
     } else {
       final position = bloc.state.validPositions.first;
       final cell = find.byKey(ValueKey('celda-${position.x}-${position.y}'));
+      final tile = tester.widget<AnimatedContainer>(
+        find.ancestor(of: cell, matching: find.byType(AnimatedContainer)).first,
+      );
+      final decoration = tile.decoration! as BoxDecoration;
+      expect(decoration.boxShadow!.first.color, const Color(0xAA00D863));
       await tester.ensureVisible(cell);
       await tester.tap(cell);
     }

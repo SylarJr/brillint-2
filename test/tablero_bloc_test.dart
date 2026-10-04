@@ -20,8 +20,12 @@ class _FixedRandom implements Random {
   double nextDouble() => 0;
 }
 
-Future<void> _startGame(BoardBloc bloc) async {
-  for (var index = 0; index < BoardState.casillasObjetivo.length; index++) {
+Future<void> _startGame(
+  BoardBloc bloc, {
+  bool ready = true,
+  int count = 6,
+}) async {
+  for (var index = 0; index < count; index++) {
     final position = BoardState.casillasObjetivo.elementAt(index);
     final selection = bloc.stream.firstWhere(
       (state) => state.casillaSeleccionada == position,
@@ -36,6 +40,8 @@ Future<void> _startGame(BoardBloc bloc) async {
     await assignment;
   }
 
+  if (!ready) return;
+  if (!bloc.state.completo) return;
   final started = bloc.stream.firstWhere((state) => state.listoParaJugar);
   bloc.add(const BoardReadyPressed());
   await started;
@@ -70,6 +76,100 @@ void main() {
       expect(afterPlacement.validPositions, isEmpty);
       expect(afterPlacement.dados, isEmpty);
     });
+
+    test('rechaza números iniciales en casillas no marcadas', () async {
+      final bloc = BoardBloc(random: _FixedRandom([0, 3]));
+      addTearDown(bloc.close);
+      await _startGame(bloc, ready: false, count: 5);
+
+      bloc.add(const BoardCellSelected(0, 0));
+      await Future<void>.delayed(Duration.zero);
+      expect(bloc.state.casillaSeleccionada, isNull);
+      bloc.add(const BoardNumberAssigned(1));
+      await Future<void>.delayed(Duration.zero);
+      expect(bloc.state.numeroEn(0, 0), isNull);
+      expect(bloc.state.asignaciones.length, 5);
+
+      final sourceSelected = bloc.stream.firstWhere(
+        (state) => state.casillaOrigenMovimiento == (0, 2),
+      );
+      bloc.add(const BoardCellSelected(0, 2));
+      await sourceSelected;
+      bloc.add(const BoardCellSelected(0, 0));
+      await Future<void>.delayed(Duration.zero);
+      bloc.add(const BoardNumberAssigned(1));
+      await Future<void>.delayed(Duration.zero);
+
+      expect(bloc.state.numeroEn(0, 2), 1);
+      expect(bloc.state.numeroEn(0, 0), isNull);
+      expect(bloc.state.asignaciones.length, 5);
+    });
+
+    test('reseleccionar un número lo mueve a la casilla vacía', () async {
+      final bloc = BoardBloc(random: _FixedRandom([0, 3]));
+      addTearDown(bloc.close);
+      await _startGame(bloc, ready: false, count: 5);
+
+      final destino = BoardState.casillasObjetivo.elementAt(5);
+      final selected = bloc.stream.firstWhere(
+        (state) => state.casillaSeleccionada == destino,
+      );
+      bloc.add(BoardCellSelected(destino.$1, destino.$2));
+      await selected;
+
+      final moved = bloc.stream.firstWhere(
+        (state) => state.numeroEn(destino.$1, destino.$2) == 1,
+      );
+      bloc.add(const BoardNumberAssigned(1));
+      final afterMove = await moved;
+
+      expect(afterMove.numeroEn(0, 2), isNull);
+      expect(afterMove.asignaciones.length, 5);
+      expect(afterMove.asignaciones.values.toSet(), {1, 2, 3, 4, 5});
+
+      final sourceSelected = bloc.stream.firstWhere(
+        (state) => state.casillaSeleccionada == (0, 2),
+      );
+      bloc.add(const BoardCellSelected(0, 2));
+      await sourceSelected;
+      final completed = bloc.stream.firstWhere((state) => state.completo);
+      bloc.add(const BoardNumberAssigned(6));
+      final completedState = await completed;
+
+      expect(completedState.asignaciones.length, 6);
+      expect(completedState.asignaciones.values.toSet(), {1, 2, 3, 4, 5, 6});
+    });
+
+    test(
+      'permite intercambiar números cuando todas las casillas están llenas',
+      () async {
+        final bloc = BoardBloc(random: _FixedRandom([0, 3]));
+        addTearDown(bloc.close);
+        await _startGame(bloc, ready: false);
+
+        final sourceSelected = bloc.stream.firstWhere(
+          (state) => state.casillaOrigenMovimiento == (0, 2),
+        );
+        bloc.add(const BoardCellSelected(0, 2));
+        await sourceSelected;
+
+        final destinationSelected = bloc.stream.firstWhere(
+          (state) => state.casillaSeleccionada == (1, 5),
+        );
+        bloc.add(const BoardCellSelected(1, 5));
+        await destinationSelected;
+
+        final swapped = bloc.stream.firstWhere(
+          (state) => state.numeroEn(0, 2) == 2 && state.numeroEn(1, 5) == 1,
+        );
+        bloc.add(const BoardNumberAssigned(1));
+        final afterSwap = await swapped;
+
+        expect(afterSwap.asignaciones.length, 6);
+        expect(afterSwap.asignaciones.values.toSet(), {1, 2, 3, 4, 5, 6});
+        expect(afterSwap.completo, isTrue);
+      },
+    );
 
     test(
       'pasar turno conserva el tablero y habilita otro lanzamiento',

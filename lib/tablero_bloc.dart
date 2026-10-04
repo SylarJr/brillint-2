@@ -54,6 +54,7 @@ class BoardState {
     required this.asignaciones,
     required this.casillaSeleccionada,
     required this.listoParaJugar,
+    this.casillaOrigenMovimiento,
     this.dados = const [],
     this.validPositions = const {},
     this.isDiceRolled = false,
@@ -142,6 +143,7 @@ class BoardState {
   final Map<(int, int), int> asignaciones;
   final (int, int)? casillaSeleccionada;
   final bool listoParaJugar;
+  final (int, int)? casillaOrigenMovimiento;
   final List<int> dados;
   final Set<Point<int>> validPositions;
   final bool isDiceRolled;
@@ -153,8 +155,7 @@ class BoardState {
       .where((numero) => !asignaciones.values.contains(numero))
       .toList(growable: false);
 
-  bool get completo =>
-      casillasMarcadas.every((posicion) => asignaciones.containsKey(posicion));
+  bool get completo => asignaciones.length == casillasMarcadas.length;
 
   bool esCasillaMarcada(int fila, int columna) =>
       casillasMarcadas.contains((fila, columna));
@@ -242,6 +243,7 @@ class BoardState {
     asignaciones: const {},
     casillaSeleccionada: null,
     listoParaJugar: false,
+    casillaOrigenMovimiento: null,
     dados: const [],
     validPositions: const {},
     isDiceRolled: false,
@@ -250,6 +252,7 @@ class BoardState {
   BoardState copyWith({
     Map<(int, int), int>? asignaciones,
     (int, int)? casillaSeleccionada,
+    (int, int)? casillaOrigenMovimiento,
     bool? listoParaJugar,
     List<int>? dados,
     Set<Point<int>>? validPositions,
@@ -257,6 +260,7 @@ class BoardState {
     int? selectedDiceValue,
     bool clearTurn = false,
     bool clearSelection = false,
+    bool clearMoveSource = false,
     bool clearSelectedDiceValue = false,
   }) => BoardState(
     matriz: matriz,
@@ -266,6 +270,9 @@ class BoardState {
         ? null
         : casillaSeleccionada ?? this.casillaSeleccionada,
     listoParaJugar: listoParaJugar ?? this.listoParaJugar,
+    casillaOrigenMovimiento: clearMoveSource
+        ? null
+        : casillaOrigenMovimiento ?? this.casillaOrigenMovimiento,
     dados: clearTurn ? const [] : dados ?? this.dados,
     validPositions: clearTurn
         ? const {}
@@ -287,21 +294,83 @@ class BoardBloc extends Bloc<BoardEvent, BoardState> {
           event.columna < 0 ||
           event.columna >= state.matriz[event.fila].length ||
           !state.esCasillaMarcada(event.fila, event.columna) ||
-          state.numeroEn(event.fila, event.columna) != null ||
           state.listoParaJugar) {
         return;
       }
 
-      emit(state.copyWith(casillaSeleccionada: (event.fila, event.columna)));
+      final posicion = (event.fila, event.columna);
+      if (state.numeroEn(event.fila, event.columna) != null) {
+        if (state.casillaOrigenMovimiento == posicion) {
+          emit(state.copyWith(clearSelection: true, clearMoveSource: true));
+        } else if (state.casillaOrigenMovimiento != null) {
+          emit(state.copyWith(casillaSeleccionada: posicion));
+        } else {
+          emit(
+            state.copyWith(
+              casillaSeleccionada: posicion,
+              casillaOrigenMovimiento: posicion,
+            ),
+          );
+        }
+        return;
+      }
+
+      emit(state.copyWith(casillaSeleccionada: posicion));
     });
 
     on<BoardNumberAssigned>((event, emit) {
       final casilla = state.casillaSeleccionada;
       if (casilla == null ||
+          !state.esCasillaMarcada(casilla.$1, casilla.$2) ||
           !BoardState.numerosPermitidos.contains(event.numero) ||
-          !state.numerosDisponibles.contains(event.numero) ||
-          state.numeroEn(casilla.$1, casilla.$2) != null ||
           state.listoParaJugar) {
+        return;
+      }
+
+      final origen = state.casillaOrigenMovimiento;
+      if (origen != null) {
+        final valorDestino = state.numeroEn(casilla.$1, casilla.$2);
+        if (!state.esCasillaMarcada(origen.$1, origen.$2) ||
+            state.asignaciones[origen] != event.numero ||
+            casilla == origen) {
+          return;
+        }
+
+        final nuevasAsignaciones = Map<(int, int), int>.of(state.asignaciones)
+          ..remove(origen);
+        nuevasAsignaciones[casilla] = event.numero;
+        if (valorDestino != null) nuevasAsignaciones[origen] = valorDestino;
+        emit(
+          state.copyWith(
+            asignaciones: Map.unmodifiable(nuevasAsignaciones),
+            clearSelection: true,
+            clearMoveSource: true,
+          ),
+        );
+        return;
+      }
+
+      if (state.numeroEn(casilla.$1, casilla.$2) != null) {
+        return;
+      }
+
+      final origenExistente = state.asignaciones.entries
+          .where((entrada) => entrada.value == event.numero)
+          .firstOrNull
+          ?.key;
+      if (origenExistente != null) {
+        if (!state.esCasillaMarcada(origenExistente.$1, origenExistente.$2)) {
+          return;
+        }
+        final nuevasAsignaciones = Map<(int, int), int>.of(state.asignaciones)
+          ..remove(origenExistente);
+        nuevasAsignaciones[casilla] = event.numero;
+        emit(
+          state.copyWith(
+            asignaciones: Map.unmodifiable(nuevasAsignaciones),
+            clearSelection: true,
+          ),
+        );
         return;
       }
 
@@ -311,6 +380,7 @@ class BoardBloc extends Bloc<BoardEvent, BoardState> {
             ...state.asignaciones,
             casilla: event.numero,
           }),
+          clearSelection: true,
         ),
       );
     });

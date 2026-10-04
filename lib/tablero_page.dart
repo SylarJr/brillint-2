@@ -186,6 +186,8 @@ class _MatrizTablero extends StatelessWidget {
             final marcada = state.esCasillaMarcada(fila, columna);
             final numero = state.numeroEn(fila, columna);
             final seleccionada = state.casillaSeleccionada == (fila, columna);
+            final origenMovimiento =
+                state.casillaOrigenMovimiento == (fila, columna);
             final valida = state.validPositions.contains(
               Point<int>(fila, columna),
             );
@@ -198,29 +200,45 @@ class _MatrizTablero extends StatelessWidget {
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 150),
                 decoration: BoxDecoration(
-                  color: tipo.color,
+                  color: valida
+                      ? Color.lerp(tipo.color, const Color(0xFF00E676), 0.42)
+                      : seleccionada || origenMovimiento
+                      ? Color.lerp(tipo.color, const Color(0xFF35C979), 0.3)
+                      : tipo.color,
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: seleccionada
-                        ? const Color(0xFF183F38)
-                        : valida
-                        ? Colors.white
+                    color: valida
+                        ? const Color(0xFF00A844)
+                        : seleccionada || origenMovimiento
+                        ? const Color(0xFF087A45)
                         : marcada
                         ? const Color(0xFF183F38)
                         : Colors.white,
-                    width: seleccionada
-                        ? 3
-                        : valida
+                    width: valida || seleccionada || origenMovimiento
                         ? 3
                         : marcada
                         ? 2
                         : 1.5,
                   ),
-                  boxShadow: seleccionada || valida
+                  boxShadow: valida
                       ? const [
                           BoxShadow(
-                            color: Color(0x8854E3B1),
-                            blurRadius: 10,
+                            color: Color(0xAA00D863),
+                            blurRadius: 14,
+                            spreadRadius: 1,
+                          ),
+                          BoxShadow(
+                            color: Color(0x4400A844),
+                            blurRadius: 20,
+                            spreadRadius: 2,
+                          ),
+                        ]
+                      : seleccionada || origenMovimiento
+                      ? const [
+                          BoxShadow(
+                            color: Color(0x7735C979),
+                            blurRadius: 12,
+                            spreadRadius: 1,
                             offset: Offset(0, 3),
                           ),
                         ]
@@ -291,9 +309,19 @@ class _PanelNumeros extends StatelessWidget {
     return BlocBuilder<BoardBloc, BoardState>(
       builder: (context, state) {
         final casilla = state.casillaSeleccionada;
-        if (casilla == null || state.numeroEn(casilla.$1, casilla.$2) != null) {
+        final origenMovimiento = state.casillaOrigenMovimiento;
+        if (casilla == null ||
+            (origenMovimiento == null &&
+                state.numeroEn(casilla.$1, casilla.$2) != null)) {
           return const SizedBox.shrink();
         }
+
+        final numeroMovimiento = origenMovimiento == null
+            ? null
+            : state.numeroEn(origenMovimiento.$1, origenMovimiento.$2);
+        final numeros = numeroMovimiento == null
+            ? BoardState.numerosPermitidos
+            : [numeroMovimiento];
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -310,7 +338,10 @@ class _PanelNumeros extends StatelessWidget {
             const SizedBox(height: 9),
             Row(
               children: BoardState.numerosPermitidos.map((numero) {
-                final disponible = state.numerosDisponibles.contains(numero);
+                if (!numeros.contains(numero)) return const SizedBox.shrink();
+                final disponible = origenMovimiento == null
+                    ? state.numeroEn(casilla.$1, casilla.$2) == null
+                    : numero == numeroMovimiento && casilla != origenMovimiento;
                 return Expanded(
                   child: Padding(
                     padding: const EdgeInsets.only(right: 6),
