@@ -6,9 +6,11 @@
 // tree, read text, and verify that the values of widget properties are correct.
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_application_1/main.dart';
+import 'package:flutter_application_1/tablero_bloc.dart';
 
 void main() {
   testWidgets('asigna los seis números una vez y muestra Listo para jugar', (
@@ -76,5 +78,37 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Listo para jugar'), findsOneWidget);
+
+    final bloc = tester
+        .element(find.byKey(const ValueKey('boton-listo')))
+        .read<BoardBloc>();
+    final botonTirar = find.byKey(const ValueKey('boton-tirar-dados'));
+    await tester.ensureVisible(botonTirar);
+    await tester.tap(botonTirar);
+    await tester.pumpAndSettle();
+
+    expect(bloc.state.isDiceRolled, isTrue);
+    expect(find.byKey(const ValueKey('dado-0')), findsOneWidget);
+    expect(find.byKey(const ValueKey('dado-1')), findsOneWidget);
+    expect(tester.widget<FilledButton>(botonTirar).onPressed, isNull);
+    expect(
+      tester
+          .widget<OutlinedButton>(
+            find.byKey(const ValueKey('boton-pasar-turno')),
+          )
+          .onPressed,
+      isNotNull,
+    );
+
+    if (bloc.state.validPositions.isEmpty) {
+      await tester.tap(find.byKey(const ValueKey('boton-pasar-turno')));
+    } else {
+      final position = bloc.state.validPositions.first;
+      final cell = find.byKey(ValueKey('celda-${position.x}-${position.y}'));
+      await tester.ensureVisible(cell);
+      await tester.tap(cell);
+    }
+    await tester.pumpAndSettle();
+    expect(bloc.state.isDiceRolled, isFalse);
   });
 }

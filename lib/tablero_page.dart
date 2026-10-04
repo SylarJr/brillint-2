@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -92,6 +94,8 @@ class TableroPage extends StatelessWidget {
                   const _MatrizTablero(),
                   const SizedBox(height: 16),
                   const _PanelNumeros(),
+                  const SizedBox(height: 16),
+                  const _PanelTurno(),
                   const SizedBox(height: 18),
                   BlocBuilder<BoardBloc, BoardState>(
                     builder: (context, state) {
@@ -182,11 +186,15 @@ class _MatrizTablero extends StatelessWidget {
             final marcada = state.esCasillaMarcada(fila, columna);
             final numero = state.numeroEn(fila, columna);
             final seleccionada = state.casillaSeleccionada == (fila, columna);
+            final valida = state.validPositions.contains(
+              Point<int>(fila, columna),
+            );
 
             return Semantics(
               label:
                   'Fila ${fila + 1}, columna ${columna + 1}, ${tipo.descripcion}',
               button: true,
+              hint: valida ? 'Casilla válida para colocar un dado' : null,
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 150),
                 decoration: BoxDecoration(
@@ -195,20 +203,24 @@ class _MatrizTablero extends StatelessWidget {
                   border: Border.all(
                     color: seleccionada
                         ? const Color(0xFF183F38)
+                        : valida
+                        ? Colors.white
                         : marcada
                         ? const Color(0xFF183F38)
                         : Colors.white,
                     width: seleccionada
                         ? 3
+                        : valida
+                        ? 3
                         : marcada
                         ? 2
                         : 1.5,
                   ),
-                  boxShadow: seleccionada
+                  boxShadow: seleccionada || valida
                       ? const [
                           BoxShadow(
-                            color: Color(0x33183F38),
-                            blurRadius: 8,
+                            color: Color(0x8854E3B1),
+                            blurRadius: 10,
                             offset: Offset(0, 3),
                           ),
                         ]
@@ -219,7 +231,25 @@ class _MatrizTablero extends StatelessWidget {
                   child: InkWell(
                     key: ValueKey('celda-$fila-$columna'),
                     borderRadius: BorderRadius.circular(8),
-                    onTap: marcada
+                    onTap: state.listoParaJugar
+                        ? valida && state.isDiceRolled
+                              ? () {
+                                  final opciones = state.numerosColocablesEn(
+                                    fila,
+                                    columna,
+                                  );
+                                  final elegido = state.selectedDiceValue;
+                                  final numero =
+                                      elegido != null &&
+                                          opciones.contains(elegido)
+                                      ? elegido
+                                      : opciones.first;
+                                  context.read<BoardBloc>().add(
+                                    PlaceNumberEvent(fila, columna, numero),
+                                  );
+                                }
+                              : null
+                        : marcada
                         ? () => context.read<BoardBloc>().add(
                             BoardCellSelected(fila, columna),
                           )
@@ -296,6 +326,102 @@ class _PanelNumeros extends StatelessWidget {
                   ),
                 );
               }).toList(),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _PanelTurno extends StatelessWidget {
+  const _PanelTurno();
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<BoardBloc, BoardState>(
+      builder: (context, state) {
+        if (!state.listoParaJugar) return const SizedBox.shrink();
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (state.isDiceRolled) ...[
+              const Text(
+                'DADOS',
+                style: TextStyle(
+                  color: Color(0xFF52635D),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.9,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  for (var index = 0; index < state.dados.length; index++) ...[
+                    if (index > 0) const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton(
+                        key: ValueKey('dado-$index'),
+                        onPressed: () => context.read<BoardBloc>().add(
+                          SelectDiceValueEvent(state.dados[index]),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          backgroundColor:
+                              state.selectedDiceValue == state.dados[index]
+                              ? const Color(0xFFE0F0E8)
+                              : null,
+                          side: BorderSide(
+                            color: state.selectedDiceValue == state.dados[index]
+                                ? const Color(0xFF183F38)
+                                : const Color(0xFFBCC9C3),
+                          ),
+                        ),
+                        child: Text('Dado ${index + 1}: ${state.dados[index]}'),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              if (state.validPositions.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.only(top: 8),
+                  child: Text(
+                    'No hay casillas válidas. Puedes pasar el turno.',
+                    style: TextStyle(color: Color(0xFF52635D), fontSize: 12),
+                  ),
+                ),
+              const SizedBox(height: 8),
+            ],
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton.icon(
+                    key: const ValueKey('boton-tirar-dados'),
+                    onPressed: state.isDiceRolled
+                        ? null
+                        : () => context.read<BoardBloc>().add(
+                            const RollDiceEvent(),
+                          ),
+                    icon: const Icon(Icons.casino_outlined),
+                    label: const Text('Tirar Dados'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    key: const ValueKey('boton-pasar-turno'),
+                    onPressed: state.isDiceRolled
+                        ? () => context.read<BoardBloc>().add(
+                            const SkipTurnEvent(),
+                          )
+                        : null,
+                    icon: const Icon(Icons.skip_next_rounded),
+                    label: const Text('Pasar turno'),
+                  ),
+                ),
+              ],
             ),
           ],
         );
