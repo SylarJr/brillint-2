@@ -13,11 +13,31 @@ import 'package:flutter_application_1/main.dart';
 import 'package:flutter_application_1/tablero_bloc.dart';
 
 void main() {
+  testWidgets('muestra el panel de puntuación a la derecha en escritorio', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const MyApp());
+
+    final tablero = tester.getRect(find.byType(AspectRatio).first);
+    final puntuacion = tester.getRect(
+      find.byKey(const ValueKey('panel-puntuacion')),
+    );
+    expect(puntuacion.left, greaterThan(tablero.right));
+  });
+
   testWidgets('asigna los seis números una vez y muestra Listo para jugar', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(const MyApp());
 
+    expect(find.byKey(const ValueKey('panel-puntuacion')), findsOneWidget);
+    expect(find.byKey(const ValueKey('puntuacion-total')), findsOneWidget);
+    expect(find.text('0'), findsOneWidget);
     expect(find.byKey(const ValueKey('celda-0-0')), findsOneWidget);
     expect(find.byKey(const ValueKey('celda-6-6')), findsOneWidget);
     expect(find.text('FILA 1  /  COLUMNA 3'), findsNothing);

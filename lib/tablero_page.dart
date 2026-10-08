@@ -17,7 +17,7 @@ class TableroPage extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(22, 18, 22, 24),
           child: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 540),
+              constraints: const BoxConstraints(maxWidth: 1000),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -67,86 +67,120 @@ class TableroPage extends StatelessWidget {
                       height: 1.1,
                     ),
                   ),
-                  BlocBuilder<BoardBloc, BoardState>(
-                    builder: (context, state) => state.listoParaJugar
-                        ? Container(
-                            key: const ValueKey('banner-listo'),
-                            margin: const EdgeInsets.only(top: 16),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 15,
-                              vertical: 12,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFE0F0E8),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Text(
-                              'Listo para jugar',
-                              style: TextStyle(
-                                color: Color(0xFF183F38),
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          )
-                        : const SizedBox.shrink(),
-                  ),
                   const SizedBox(height: 20),
-                  const _MatrizTablero(),
-                  const SizedBox(height: 16),
-                  const _PanelNumeros(),
-                  const SizedBox(height: 16),
-                  const _PanelTurno(),
-                  const SizedBox(height: 18),
-                  BlocBuilder<BoardBloc, BoardState>(
-                    builder: (context, state) {
-                      final casilla = state.casillaSeleccionada;
-                      final tipo = casilla == null
-                          ? null
-                          : state.matriz[casilla.$1][casilla.$2];
-                      return Row(
-                        children: [
-                          Container(
-                            width: 10,
-                            height: 10,
-                            decoration: BoxDecoration(
-                              color: tipo?.color ?? const Color(0xFF61726C),
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 9),
-                          Text(
-                            casilla == null
-                                ? '${state.asignaciones.length} DE 6 NÚMEROS COLOCADOS'
-                                : 'FILA ${casilla.$1 + 1}  /  COLUMNA ${casilla.$2 + 1}',
-                            style: const TextStyle(
-                              color: Color(0xFF52635D),
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.8,
-                            ),
-                          ),
-                          const Spacer(),
-                          Text(
-                            tipo == null ? '' : _nombreTipo(tipo),
-                            style: const TextStyle(
-                              color: Color(0xFF18332D),
-                              fontSize: 11,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0.8,
-                            ),
-                          ),
-                        ],
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      const tablero = _ContenidoTablero();
+                      const puntuacion = _PanelPuntuacion();
+                      if (constraints.maxWidth >= 800) {
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Expanded(child: tablero),
+                            const SizedBox(width: 24),
+                            SizedBox(width: 270, child: puntuacion),
+                          ],
+                        );
+                      }
+
+                      return const Column(
+                        children: [tablero, SizedBox(height: 24), puntuacion],
                       );
                     },
                   ),
-                  const SizedBox(height: 27),
-                  const _Leyenda(),
                 ],
               ),
             ),
           ),
         ),
       ),
+    );
+  }
+}
+
+class _ContenidoTablero extends StatelessWidget {
+  const _ContenidoTablero();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        BlocBuilder<BoardBloc, BoardState>(
+          builder: (context, state) => state.listoParaJugar
+              ? Container(
+                  key: const ValueKey('banner-listo'),
+                  margin: const EdgeInsets.only(top: 16),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 15,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE0F0E8),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Text(
+                    'Listo para jugar',
+                    style: TextStyle(
+                      color: Color(0xFF183F38),
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                )
+              : const SizedBox.shrink(),
+        ),
+        const SizedBox(height: 20),
+        const _MatrizTablero(),
+        const SizedBox(height: 16),
+        const _PanelNumeros(),
+        const SizedBox(height: 16),
+        const _PanelTurno(),
+        const SizedBox(height: 18),
+        BlocBuilder<BoardBloc, BoardState>(
+          builder: (context, state) {
+            final casilla = state.casillaSeleccionada;
+            final tipo = casilla == null
+                ? null
+                : state.matriz[casilla.$1][casilla.$2];
+            return Row(
+              children: [
+                Container(
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    color: tipo?.color ?? const Color(0xFF61726C),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 9),
+                Text(
+                  casilla == null
+                      ? '${state.asignaciones.length} DE 6 NÚMEROS COLOCADOS'
+                      : 'FILA ${casilla.$1 + 1}  /  COLUMNA ${casilla.$2 + 1}',
+                  style: const TextStyle(
+                    color: Color(0xFF52635D),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  tipo == null ? '' : _nombreTipo(tipo),
+                  style: const TextStyle(
+                    color: Color(0xFF18332D),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+        const SizedBox(height: 27),
+        const _Leyenda(),
+      ],
     );
   }
 }
@@ -447,6 +481,141 @@ class _PanelTurno extends StatelessWidget {
               ],
             ),
           ],
+        );
+      },
+    );
+  }
+}
+
+class _PanelPuntuacion extends StatelessWidget {
+  const _PanelPuntuacion();
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<BoardBloc, BoardState>(
+      builder: (context, state) {
+        final historial = state.historialPuntuacion.reversed;
+        return Container(
+          key: const ValueKey('panel-puntuacion'),
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFE1E9E4)),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x10183F38),
+                blurRadius: 18,
+                offset: Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'PUNTUACIÓN',
+                style: TextStyle(
+                  color: Color(0xFF52635D),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1,
+                ),
+              ),
+              const SizedBox(height: 7),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    '${state.puntuacionTotal}',
+                    key: const ValueKey('puntuacion-total'),
+                    style: const TextStyle(
+                      color: Color(0xFF183F38),
+                      fontSize: 40,
+                      height: 1,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.only(left: 8, bottom: 4),
+                    child: Text(
+                      'puntos',
+                      style: TextStyle(
+                        color: Color(0xFF61726C),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 22),
+              const Text(
+                'ZONAS COMPLETADAS',
+                style: TextStyle(
+                  color: Color(0xFF52635D),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.8,
+                ),
+              ),
+              const SizedBox(height: 12),
+              if (historial.isEmpty)
+                const Text(
+                  'Completa una zona para sumar puntos.',
+                  style: TextStyle(
+                    color: Color(0xFF61726C),
+                    fontSize: 12,
+                    height: 1.4,
+                  ),
+                )
+              else
+                for (final entrada in historial)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 11),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 10,
+                          height: 10,
+                          decoration: BoxDecoration(
+                            color: entrada.zona.tipo.color,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            '${_nombreTipo(entrada.zona.tipo)} · ${entrada.puesto}.ª',
+                            style: const TextStyle(
+                              color: Color(0xFF18332D),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          '+${entrada.puntos}',
+                          style: const TextStyle(
+                            color: Color(0xFF183F38),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              const SizedBox(height: 4),
+              const Text(
+                'Los puntos se asignan por color y orden. Solo puntúan las tres primeras zonas de cada color.',
+                style: TextStyle(
+                  color: Color(0xFF7A8983),
+                  fontSize: 10,
+                  height: 1.4,
+                ),
+              ),
+            ],
+          ),
         );
       },
     );

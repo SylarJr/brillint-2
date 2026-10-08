@@ -47,6 +47,30 @@ class SelectDiceValueEvent extends BoardEvent {
   final int number;
 }
 
+class BoardZone {
+  const BoardZone({
+    required this.id,
+    required this.tipo,
+    required this.casillas,
+  });
+
+  final (int, int) id;
+  final Tipo tipo;
+  final Set<(int, int)> casillas;
+}
+
+class BoardZoneScore {
+  const BoardZoneScore({
+    required this.zona,
+    required this.puesto,
+    required this.puntos,
+  });
+
+  final BoardZone zona;
+  final int puesto;
+  final int puntos;
+}
+
 class BoardState {
   BoardState({
     required this.matriz,
@@ -54,6 +78,7 @@ class BoardState {
     required this.asignaciones,
     required this.casillaSeleccionada,
     required this.listoParaJugar,
+    this.zonasCompletadas = const [],
     this.casillaOrigenMovimiento,
     this.dados = const [],
     this.validPositions = const {},
@@ -137,12 +162,14 @@ class BoardState {
   };
 
   static const List<int> numerosPermitidos = [1, 2, 3, 4, 5, 6];
+  static final List<BoardZone> zonas = _crearZonas();
 
   final List<List<Tipo>> matriz;
   final Set<(int, int)> casillasMarcadas;
   final Map<(int, int), int> asignaciones;
   final (int, int)? casillaSeleccionada;
   final bool listoParaJugar;
+  final List<(int, int)> zonasCompletadas;
   final (int, int)? casillaOrigenMovimiento;
   final List<int> dados;
   final Set<Point<int>> validPositions;
@@ -156,6 +183,32 @@ class BoardState {
       .toList(growable: false);
 
   bool get completo => asignaciones.length == casillasMarcadas.length;
+
+  List<BoardZoneScore> get historialPuntuacion {
+    final puestosPorTipo = <Type, int>{};
+    final historial = <BoardZoneScore>[];
+
+    for (final id in zonasCompletadas) {
+      final zona = _zonaPorId(id);
+      if (zona == null) continue;
+
+      final tipo = zona.tipo.runtimeType;
+      final puesto = (puestosPorTipo[tipo] ?? 0) + 1;
+      puestosPorTipo[tipo] = puesto;
+      historial.add(
+        BoardZoneScore(
+          zona: zona,
+          puesto: puesto,
+          puntos: zona.tipo.puntuaciones[puesto] ?? 0,
+        ),
+      );
+    }
+
+    return List.unmodifiable(historial);
+  }
+
+  int get puntuacionTotal =>
+      historialPuntuacion.fold(0, (total, entrada) => total + entrada.puntos);
 
   bool esCasillaMarcada(int fila, int columna) =>
       casillasMarcadas.contains((fila, columna));
@@ -249,11 +302,71 @@ class BoardState {
     isDiceRolled: false,
   );
 
+  static List<BoardZone> _crearZonas() {
+    final zonas = <BoardZone>[];
+    final visitadas = <(int, int)>{};
+
+    for (var fila = 0; fila < matrizInicial.length; fila++) {
+      for (var columna = 0; columna < matrizInicial[fila].length; columna++) {
+        final inicio = (fila, columna);
+        if (visitadas.contains(inicio)) continue;
+
+        final tipo = matrizInicial[fila][columna];
+        final pendientes = <(int, int)>[inicio];
+        final casillas = <(int, int)>{};
+
+        while (pendientes.isNotEmpty) {
+          final actual = pendientes.removeLast();
+          if (visitadas.contains(actual)) continue;
+          final (actualFila, actualColumna) = actual;
+          if (matrizInicial[actualFila][actualColumna].runtimeType !=
+              tipo.runtimeType) {
+            continue;
+          }
+
+          visitadas.add(actual);
+          casillas.add(actual);
+          pendientes.addAll([
+            (actualFila - 1, actualColumna),
+            (actualFila + 1, actualColumna),
+            (actualFila, actualColumna - 1),
+            (actualFila, actualColumna + 1),
+          ].where(
+            (posicion) =>
+                posicion.$1 >= 0 &&
+                posicion.$1 < matrizInicial.length &&
+                posicion.$2 >= 0 &&
+                posicion.$2 < matrizInicial[posicion.$1].length &&
+                !visitadas.contains(posicion),
+          ));
+        }
+
+        zonas.add(
+          BoardZone(
+            id: inicio,
+            tipo: tipo,
+            casillas: Set.unmodifiable(casillas),
+          ),
+        );
+      }
+    }
+
+    return List.unmodifiable(zonas);
+  }
+
+  static BoardZone? _zonaPorId((int, int) id) {
+    for (final zona in zonas) {
+      if (zona.id == id) return zona;
+    }
+    return null;
+  }
+
   BoardState copyWith({
     Map<(int, int), int>? asignaciones,
     (int, int)? casillaSeleccionada,
     (int, int)? casillaOrigenMovimiento,
     bool? listoParaJugar,
+    List<(int, int)>? zonasCompletadas,
     List<int>? dados,
     Set<Point<int>>? validPositions,
     bool? isDiceRolled,
@@ -270,6 +383,7 @@ class BoardState {
         ? null
         : casillaSeleccionada ?? this.casillaSeleccionada,
     listoParaJugar: listoParaJugar ?? this.listoParaJugar,
+    zonasCompletadas: zonasCompletadas ?? this.zonasCompletadas,
     casillaOrigenMovimiento: clearMoveSource
         ? null
         : casillaOrigenMovimiento ?? this.casillaOrigenMovimiento,
@@ -425,6 +539,10 @@ class BoardBloc extends Bloc<BoardEvent, BoardState> {
             ...state.asignaciones,
             (event.row, event.col): event.number,
           }),
+          zonasCompletadas: _registrarZonasCompletadas(
+            state.asignaciones,
+            (event.row, event.col),
+          ),
           clearTurn: true,
         ),
       );
@@ -446,9 +564,39 @@ class BoardBloc extends Bloc<BoardEvent, BoardState> {
 
   void _startGameIfSetupComplete(Emitter<BoardState> emit) {
     if (!state.completo || state.listoParaJugar) return;
-    emit(state.copyWith(listoParaJugar: true, clearSelection: true));
+    emit(
+      state.copyWith(
+        listoParaJugar: true,
+        zonasCompletadas: _zonasCompletasEn(state.asignaciones),
+        clearSelection: true,
+      ),
+    );
     add(const RollDiceEvent());
   }
+
+  List<(int, int)> _registrarZonasCompletadas(
+    Map<(int, int), int> asignaciones,
+    (int, int) posicionAgregada,
+  ) {
+    final nuevasAsignaciones = {...asignaciones, posicionAgregada: 0};
+    final completadas = List<(int, int)>.of(state.zonasCompletadas);
+
+    for (final zona in BoardState.zonas) {
+      if (zona.casillas.contains(posicionAgregada) &&
+          !completadas.contains(zona.id) &&
+          zona.casillas.every(nuevasAsignaciones.containsKey)) {
+        completadas.add(zona.id);
+      }
+    }
+
+    return List.unmodifiable(completadas);
+  }
+
+  List<(int, int)> _zonasCompletasEn(Map<(int, int), int> asignaciones) =>
+      List.unmodifiable([
+        for (final zona in BoardState.zonas)
+          if (zona.casillas.every(asignaciones.containsKey)) zona.id,
+      ]);
 
   final Random _random;
 }
