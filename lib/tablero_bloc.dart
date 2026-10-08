@@ -347,6 +347,7 @@ class BoardBloc extends Bloc<BoardEvent, BoardState> {
             clearMoveSource: true,
           ),
         );
+        _startGameIfSetupComplete(emit);
         return;
       }
 
@@ -371,6 +372,7 @@ class BoardBloc extends Bloc<BoardEvent, BoardState> {
             clearSelection: true,
           ),
         );
+        _startGameIfSetupComplete(emit);
         return;
       }
 
@@ -383,6 +385,7 @@ class BoardBloc extends Bloc<BoardEvent, BoardState> {
           clearSelection: true,
         ),
       );
+      _startGameIfSetupComplete(emit);
     });
 
     on<BoardReadyPressed>((event, emit) {
@@ -407,7 +410,7 @@ class BoardBloc extends Bloc<BoardEvent, BoardState> {
       emit(state.copyWith(selectedDiceValue: event.number));
     });
 
-    on<PlaceNumberEvent>((event, emit) {
+    on<PlaceNumberEvent>((event, emit) async {
       if (!state.listoParaJugar ||
           !state.isDiceRolled ||
           !state
@@ -425,12 +428,26 @@ class BoardBloc extends Bloc<BoardEvent, BoardState> {
           clearTurn: true,
         ),
       );
+      await Future<void>.delayed(const Duration(seconds: 2));
+      if (!isClosed && state.listoParaJugar && !state.isDiceRolled) {
+        add(const RollDiceEvent());
+      }
     });
 
-    on<SkipTurnEvent>((event, emit) {
+    on<SkipTurnEvent>((event, emit) async {
       if (!state.listoParaJugar || !state.isDiceRolled) return;
       emit(state.copyWith(clearTurn: true));
+      await Future<void>.delayed(const Duration(seconds: 2));
+      if (!isClosed && state.listoParaJugar && !state.isDiceRolled) {
+        add(const RollDiceEvent());
+      }
     });
+  }
+
+  void _startGameIfSetupComplete(Emitter<BoardState> emit) {
+    if (!state.completo || state.listoParaJugar) return;
+    emit(state.copyWith(listoParaJugar: true, clearSelection: true));
+    add(const RollDiceEvent());
   }
 
   final Random _random;

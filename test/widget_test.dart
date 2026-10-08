@@ -70,47 +70,20 @@ void main() {
       }
     }
 
-    final origen = find.byKey(const ValueKey('celda-0-2'));
-    final destino = find.byKey(const ValueKey('celda-6-4'));
-    await tester.ensureVisible(origen);
-    await tester.tap(origen);
-    await tester.pumpAndSettle();
-    expect(find.textContaining('Toca una casilla vacía'), findsNothing);
-    await tester.ensureVisible(destino);
-    await tester.tap(destino);
-    await tester.pumpAndSettle();
-    final botonNumeroUno = find.byKey(const ValueKey('numero-1'));
-    await tester.ensureVisible(botonNumeroUno);
-    await tester.tap(botonNumeroUno);
-    await tester.pumpAndSettle();
-
     final bloc = tester
-        .element(find.byKey(const ValueKey('boton-listo')))
+        .element(find.byKey(const ValueKey('celda-0-0')))
         .read<BoardBloc>();
-    expect(bloc.state.numeroEn(0, 2), 6);
-    expect(bloc.state.numeroEn(6, 4), 1);
     expect(bloc.state.asignaciones.values.toSet(), {1, 2, 3, 4, 5, 6});
-
-    final botonListo = tester.widget<FilledButton>(
-      find.byKey(const ValueKey('boton-listo')),
-    );
-    expect(botonListo.onPressed, isNotNull);
-
-    await tester.ensureVisible(find.byKey(const ValueKey('boton-listo')));
-    await tester.tap(find.byKey(const ValueKey('boton-listo')));
-    await tester.pumpAndSettle();
+    expect(bloc.state.completo, isTrue);
+    expect(bloc.state.listoParaJugar, isTrue);
 
     expect(find.text('Listo para jugar'), findsOneWidget);
-
-    final botonTirar = find.byKey(const ValueKey('boton-tirar-dados'));
-    await tester.ensureVisible(botonTirar);
-    await tester.tap(botonTirar);
     await tester.pumpAndSettle();
 
     expect(bloc.state.isDiceRolled, isTrue);
     expect(find.byKey(const ValueKey('dado-0')), findsOneWidget);
     expect(find.byKey(const ValueKey('dado-1')), findsOneWidget);
-    expect(tester.widget<FilledButton>(botonTirar).onPressed, isNull);
+    expect(find.byKey(const ValueKey('boton-tirar-dados')), findsNothing);
     expect(
       tester
           .widget<OutlinedButton>(
@@ -133,7 +106,10 @@ void main() {
       await tester.ensureVisible(cell);
       await tester.tap(cell);
     }
-    await tester.pumpAndSettle();
+    await tester.pump();
     expect(bloc.state.isDiceRolled, isFalse);
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+    expect(bloc.state.isDiceRolled, isTrue);
   });
 }

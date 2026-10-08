@@ -40,11 +40,13 @@ Future<void> _startGame(
     await assignment;
   }
 
-  if (!ready) return;
-  if (!bloc.state.completo) return;
-  final started = bloc.stream.firstWhere((state) => state.listoParaJugar);
-  bloc.add(const BoardReadyPressed());
-  await started;
+  if (!ready || !bloc.state.completo) return;
+  if (!bloc.state.listoParaJugar) {
+    await bloc.stream.firstWhere((state) => state.listoParaJugar);
+  }
+  if (!bloc.state.isDiceRolled) {
+    await bloc.stream.firstWhere((state) => state.isDiceRolled);
+  }
 }
 
 void main() {
@@ -54,10 +56,10 @@ void main() {
       addTearDown(bloc.close);
       await _startGame(bloc);
 
-      final rolled = bloc.stream.firstWhere((state) => state.isDiceRolled);
-      bloc.add(const RollDiceEvent());
-      final state = await rolled;
+      final state = bloc.state;
 
+      expect(state.listoParaJugar, isTrue);
+      expect(state.isDiceRolled, isTrue);
       expect(state.dados, [1, 4]);
       expect(state.validPositions, contains(const Point<int>(0, 1)));
       expect(state.numerosColocablesEn(0, 1), contains(4));
@@ -89,6 +91,7 @@ void main() {
       await Future<void>.delayed(Duration.zero);
       expect(bloc.state.numeroEn(0, 0), isNull);
       expect(bloc.state.asignaciones.length, 5);
+      expect(bloc.state.isDiceRolled, isFalse);
 
       final sourceSelected = bloc.stream.firstWhere(
         (state) => state.casillaOrigenMovimiento == (0, 2),
@@ -141,33 +144,17 @@ void main() {
     });
 
     test(
-      'permite intercambiar números cuando todas las casillas están llenas',
+      'inicia y lanza los dados al completar los números iniciales',
       () async {
         final bloc = BoardBloc(random: _FixedRandom([0, 3]));
         addTearDown(bloc.close);
-        await _startGame(bloc, ready: false);
+        await _startGame(bloc);
 
-        final sourceSelected = bloc.stream.firstWhere(
-          (state) => state.casillaOrigenMovimiento == (0, 2),
-        );
-        bloc.add(const BoardCellSelected(0, 2));
-        await sourceSelected;
-
-        final destinationSelected = bloc.stream.firstWhere(
-          (state) => state.casillaSeleccionada == (1, 5),
-        );
-        bloc.add(const BoardCellSelected(1, 5));
-        await destinationSelected;
-
-        final swapped = bloc.stream.firstWhere(
-          (state) => state.numeroEn(0, 2) == 2 && state.numeroEn(1, 5) == 1,
-        );
-        bloc.add(const BoardNumberAssigned(1));
-        final afterSwap = await swapped;
-
-        expect(afterSwap.asignaciones.length, 6);
-        expect(afterSwap.asignaciones.values.toSet(), {1, 2, 3, 4, 5, 6});
-        expect(afterSwap.completo, isTrue);
+        expect(bloc.state.asignaciones.length, 6);
+        expect(bloc.state.asignaciones.values.toSet(), {1, 2, 3, 4, 5, 6});
+        expect(bloc.state.completo, isTrue);
+        expect(bloc.state.listoParaJugar, isTrue);
+        expect(bloc.state.isDiceRolled, isTrue);
       },
     );
 
@@ -178,9 +165,6 @@ void main() {
         addTearDown(bloc.close);
         await _startGame(bloc);
 
-        final rolled = bloc.stream.firstWhere((state) => state.isDiceRolled);
-        bloc.add(const RollDiceEvent());
-        await rolled;
         final assignmentsBeforeSkip = Map.of(bloc.state.asignaciones);
 
         final skipped = bloc.stream.firstWhere((state) => !state.isDiceRolled);
@@ -194,7 +178,7 @@ void main() {
         final rolledAgain = bloc.stream.firstWhere(
           (state) => state.isDiceRolled,
         );
-        bloc.add(const RollDiceEvent());
+        await Future<void>.delayed(const Duration(seconds: 2));
         await rolledAgain;
         expect(bloc.state.dados, [2, 3]);
       },

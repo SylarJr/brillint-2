@@ -141,18 +141,6 @@ class TableroPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 27),
                   const _Leyenda(),
-                  const SizedBox(height: 22),
-                  BlocBuilder<BoardBloc, BoardState>(
-                    builder: (context, state) => FilledButton(
-                      key: const ValueKey('boton-listo'),
-                      onPressed: state.completo && !state.listoParaJugar
-                          ? () => context.read<BoardBloc>().add(
-                              const BoardReadyPressed(),
-                            )
-                          : null,
-                      child: const Text('Listo'),
-                    ),
-                  ),
                 ],
               ),
             ),
@@ -377,6 +365,23 @@ class _PanelTurno extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            if (!state.isDiceRolled) ...[
+              const Row(
+                children: [
+                  SizedBox(
+                    width: 15,
+                    height: 15,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  SizedBox(width: 9),
+                  Text(
+                    'Siguiente lanzamiento...',
+                    style: TextStyle(color: Color(0xFF52635D), fontSize: 12),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+            ],
             if (state.isDiceRolled) ...[
               const Text(
                 'DADOS',
@@ -427,19 +432,6 @@ class _PanelTurno extends StatelessWidget {
             ],
             Row(
               children: [
-                Expanded(
-                  child: FilledButton.icon(
-                    key: const ValueKey('boton-tirar-dados'),
-                    onPressed: state.isDiceRolled
-                        ? null
-                        : () => context.read<BoardBloc>().add(
-                            const RollDiceEvent(),
-                          ),
-                    icon: const Icon(Icons.casino_outlined),
-                    label: const Text('Tirar Dados'),
-                  ),
-                ),
-                const SizedBox(width: 8),
                 Expanded(
                   child: OutlinedButton.icon(
                     key: const ValueKey('boton-pasar-turno'),
