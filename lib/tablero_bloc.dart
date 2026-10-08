@@ -305,6 +305,7 @@ class BoardState {
   static List<BoardZone> _crearZonas() {
     final zonas = <BoardZone>[];
     final visitadas = <(int, int)>{};
+    final casillasAmarillas = <(int, int)>{};
 
     for (var fila = 0; fila < matrizInicial.length; fila++) {
       for (var columna = 0; columna < matrizInicial[fila].length; columna++) {
@@ -312,6 +313,35 @@ class BoardState {
         if (visitadas.contains(inicio)) continue;
 
         final tipo = matrizInicial[fila][columna];
+        if (tipo is TipoAmarillo) {
+          final pendientes = <(int, int)>[inicio];
+          while (pendientes.isNotEmpty) {
+            final actual = pendientes.removeLast();
+            if (visitadas.contains(actual)) continue;
+            final (actualFila, actualColumna) = actual;
+            if (matrizInicial[actualFila][actualColumna] is! TipoAmarillo) {
+              continue;
+            }
+
+            visitadas.add(actual);
+            casillasAmarillas.add(actual);
+            pendientes.addAll([
+              (actualFila - 1, actualColumna),
+              (actualFila + 1, actualColumna),
+              (actualFila, actualColumna - 1),
+              (actualFila, actualColumna + 1),
+            ].where(
+              (posicion) =>
+                  posicion.$1 >= 0 &&
+                  posicion.$1 < matrizInicial.length &&
+                  posicion.$2 >= 0 &&
+                  posicion.$2 < matrizInicial[posicion.$1].length &&
+                  !visitadas.contains(posicion),
+            ));
+          }
+          continue;
+        }
+
         final pendientes = <(int, int)>[inicio];
         final casillas = <(int, int)>{};
 
@@ -349,6 +379,16 @@ class BoardState {
           ),
         );
       }
+    }
+
+    if (casillasAmarillas.isNotEmpty) {
+      zonas.add(
+        BoardZone(
+          id: (-1, -1),
+          tipo: const TipoAmarillo(),
+          casillas: Set.unmodifiable(casillasAmarillas),
+        ),
+      );
     }
 
     return List.unmodifiable(zonas);

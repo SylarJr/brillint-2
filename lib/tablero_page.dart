@@ -71,20 +71,20 @@ class TableroPage extends StatelessWidget {
                   LayoutBuilder(
                     builder: (context, constraints) {
                       const tablero = _ContenidoTablero();
-                      const puntuacion = _PanelPuntuacion();
+                      const panelLateral = _PanelLateral();
                       if (constraints.maxWidth >= 800) {
                         return Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Expanded(child: tablero),
                             const SizedBox(width: 24),
-                            SizedBox(width: 270, child: puntuacion),
+                            const SizedBox(width: 270, child: panelLateral),
                           ],
                         );
                       }
 
                       return const Column(
-                        children: [tablero, SizedBox(height: 24), puntuacion],
+                        children: [tablero, SizedBox(height: 24), panelLateral],
                       );
                     },
                   ),
@@ -133,8 +133,6 @@ class _ContenidoTablero extends StatelessWidget {
         const _MatrizTablero(),
         const SizedBox(height: 16),
         const _PanelNumeros(),
-        const SizedBox(height: 16),
-        const _PanelTurno(),
         const SizedBox(height: 18),
         BlocBuilder<BoardBloc, BoardState>(
           builder: (context, state) {
@@ -297,11 +295,7 @@ class _MatrizTablero extends StatelessWidget {
                     child: Center(
                       child: numero == null
                           ? marcada
-                                ? const Icon(
-                                    Icons.add_rounded,
-                                    color: Color(0x99183F38),
-                                    size: 17,
-                                  )
+                                ? const _MarcadorPendiente()
                                 : const SizedBox.shrink()
                           : Text(
                               '$numero',
@@ -319,6 +313,41 @@ class _MatrizTablero extends StatelessWidget {
           },
         ),
       ),
+    );
+  }
+}
+
+class _MarcadorPendiente extends StatelessWidget {
+  const _MarcadorPendiente();
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      key: const ValueKey('marcador-pendiente'),
+      alignment: Alignment.center,
+      children: [
+        Text(
+          '*',
+          style: TextStyle(
+            foreground: Paint()
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 2.4
+              ..color = const Color(0xFF183F38),
+            fontSize: 25,
+            fontWeight: FontWeight.w900,
+            height: 1,
+          ),
+        ),
+        const Text(
+          '*',
+          style: TextStyle(
+            color: Color(0xFF183F38),
+            fontSize: 25,
+            fontWeight: FontWeight.w900,
+            height: 1,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -387,6 +416,18 @@ class _PanelNumeros extends StatelessWidget {
   }
 }
 
+class _PanelLateral extends StatelessWidget {
+  const _PanelLateral();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [_PanelTurno(), SizedBox(height: 18), _PanelPuntuacion()],
+    );
+  }
+}
+
 class _PanelTurno extends StatelessWidget {
   const _PanelTurno();
 
@@ -394,93 +435,170 @@ class _PanelTurno extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<BoardBloc, BoardState>(
       builder: (context, state) {
-        if (!state.listoParaJugar) return const SizedBox.shrink();
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (!state.isDiceRolled) ...[
-              const Row(
-                children: [
-                  SizedBox(
-                    width: 15,
-                    height: 15,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                  SizedBox(width: 9),
-                  Text(
-                    'Siguiente lanzamiento...',
-                    style: TextStyle(color: Color(0xFF52635D), fontSize: 12),
-                  ),
-                ],
+        return Container(
+          key: const ValueKey('panel-dados'),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFE1E9E4)),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x10183F38),
+                blurRadius: 18,
+                offset: Offset(0, 6),
               ),
-              const SizedBox(height: 8),
             ],
-            if (state.isDiceRolled) ...[
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
               const Text(
                 'DADOS',
                 style: TextStyle(
                   color: Color(0xFF52635D),
-                  fontSize: 10,
+                  fontSize: 11,
                   fontWeight: FontWeight.w800,
-                  letterSpacing: 0.9,
+                  letterSpacing: 1,
                 ),
               ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  for (var index = 0; index < state.dados.length; index++) ...[
-                    if (index > 0) const SizedBox(width: 8),
-                    Expanded(
-                      child: OutlinedButton(
-                        key: ValueKey('dado-$index'),
-                        onPressed: () => context.read<BoardBloc>().add(
-                          SelectDiceValueEvent(state.dados[index]),
+              const SizedBox(height: 12),
+              if (!state.listoParaJugar)
+                const Text(
+                  'Completa las zonas para empezar a lanzar.',
+                  style: TextStyle(
+                    color: Color(0xFF61726C),
+                    fontSize: 12,
+                    height: 1.4,
+                  ),
+                ),
+              if (!state.isDiceRolled) ...[
+                if (state.listoParaJugar)
+                  const Row(
+                    children: [
+                      SizedBox(
+                        width: 15,
+                        height: 15,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                      SizedBox(width: 9),
+                      Text(
+                        'Siguiente lanzamiento...',
+                        style: TextStyle(
+                          color: Color(0xFF52635D),
+                          fontSize: 12,
                         ),
-                        style: OutlinedButton.styleFrom(
-                          backgroundColor:
-                              state.selectedDiceValue == state.dados[index]
-                              ? const Color(0xFFE0F0E8)
-                              : null,
-                          side: BorderSide(
-                            color: state.selectedDiceValue == state.dados[index]
-                                ? const Color(0xFF183F38)
-                                : const Color(0xFFBCC9C3),
+                      ),
+                    ],
+                  ),
+                if (state.listoParaJugar) const SizedBox(height: 8),
+              ],
+              if (state.isDiceRolled) ...[
+                Row(
+                  children: [
+                    for (
+                      var index = 0;
+                      index < state.dados.length;
+                      index++
+                    ) ...[
+                      if (index > 0) const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton(
+                          key: ValueKey('dado-$index'),
+                          onPressed: () => context.read<BoardBloc>().add(
+                            SelectDiceValueEvent(state.dados[index]),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            backgroundColor:
+                                state.selectedDiceValue == state.dados[index]
+                                ? const Color(0xFFE0F0E8)
+                                : null,
+                            side: BorderSide(
+                              color:
+                                  state.selectedDiceValue == state.dados[index]
+                                  ? const Color(0xFF183F38)
+                                  : const Color(0xFFBCC9C3),
+                            ),
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'DADO ${index + 1}',
+                                style: const TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.6,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 420),
+                                switchInCurve: Curves.easeOutBack,
+                                switchOutCurve: Curves.easeIn,
+                                transitionBuilder: (child, animation) =>
+                                    FadeTransition(
+                                      opacity: animation,
+                                      child: ScaleTransition(
+                                        scale: animation,
+                                        child: RotationTransition(
+                                          turns: Tween<double>(
+                                            begin: 0.12,
+                                            end: 0,
+                                          ).animate(animation),
+                                          child: child,
+                                        ),
+                                      ),
+                                    ),
+                                child: Text(
+                                  '${state.dados[index]}',
+                                  key: ValueKey(
+                                    'valor-dado-$index-${state.dados[index]}',
+                                  ),
+                                  style: const TextStyle(
+                                    color: Color(0xFF183F38),
+                                    fontSize: 28,
+                                    height: 1,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        child: Text('Dado ${index + 1}: ${state.dados[index]}'),
+                      ),
+                    ],
+                  ],
+                ),
+                if (state.validPositions.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 8),
+                    child: Text(
+                      'No hay casillas válidas. Puedes pasar el turno.',
+                      style: TextStyle(color: Color(0xFF52635D), fontSize: 12),
+                    ),
+                  ),
+                const SizedBox(height: 8),
+              ],
+              if (state.listoParaJugar)
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        key: const ValueKey('boton-pasar-turno'),
+                        onPressed: state.isDiceRolled
+                            ? () => context.read<BoardBloc>().add(
+                                const SkipTurnEvent(),
+                              )
+                            : null,
+                        icon: const Icon(Icons.skip_next_rounded),
+                        label: const Text('Pasar turno'),
                       ),
                     ),
                   ],
-                ],
-              ),
-              if (state.validPositions.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.only(top: 8),
-                  child: Text(
-                    'No hay casillas válidas. Puedes pasar el turno.',
-                    style: TextStyle(color: Color(0xFF52635D), fontSize: 12),
-                  ),
                 ),
-              const SizedBox(height: 8),
             ],
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    key: const ValueKey('boton-pasar-turno'),
-                    onPressed: state.isDiceRolled
-                        ? () => context.read<BoardBloc>().add(
-                            const SkipTurnEvent(),
-                          )
-                        : null,
-                    icon: const Icon(Icons.skip_next_rounded),
-                    label: const Text('Pasar turno'),
-                  ),
-                ),
-              ],
-            ),
-          ],
+          ),
         );
       },
     );
@@ -607,7 +725,7 @@ class _PanelPuntuacion extends StatelessWidget {
                   ),
               const SizedBox(height: 4),
               const Text(
-                'Los puntos se asignan por color y orden. Solo puntúan las tres primeras zonas de cada color.',
+                'El amarillo cuenta como una sola zona: completa todas sus casillas para puntuar. Los demás colores puntúan por orden.',
                 style: TextStyle(
                   color: Color(0xFF7A8983),
                   fontSize: 10,

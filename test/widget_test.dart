@@ -24,9 +24,11 @@ void main() {
     await tester.pumpWidget(const MyApp());
 
     final tablero = tester.getRect(find.byType(AspectRatio).first);
+    final dados = tester.getRect(find.byKey(const ValueKey('panel-dados')));
     final puntuacion = tester.getRect(
       find.byKey(const ValueKey('panel-puntuacion')),
     );
+    expect(dados.left, greaterThan(tablero.right));
     expect(puntuacion.left, greaterThan(tablero.right));
   });
 
@@ -36,7 +38,9 @@ void main() {
     await tester.pumpWidget(const MyApp());
 
     expect(find.byKey(const ValueKey('panel-puntuacion')), findsOneWidget);
+    expect(find.byKey(const ValueKey('panel-dados')), findsOneWidget);
     expect(find.byKey(const ValueKey('puntuacion-total')), findsOneWidget);
+    expect(find.byKey(const ValueKey('marcador-pendiente')), findsNWidgets(6));
     expect(find.text('0'), findsOneWidget);
     expect(find.byKey(const ValueKey('celda-0-0')), findsOneWidget);
     expect(find.byKey(const ValueKey('celda-6-6')), findsOneWidget);
@@ -103,6 +107,7 @@ void main() {
     expect(bloc.state.isDiceRolled, isTrue);
     expect(find.byKey(const ValueKey('dado-0')), findsOneWidget);
     expect(find.byKey(const ValueKey('dado-1')), findsOneWidget);
+    expect(find.byType(AnimatedSwitcher), findsNWidgets(2));
     expect(find.byKey(const ValueKey('boton-tirar-dados')), findsNothing);
     expect(
       tester
