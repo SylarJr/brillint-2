@@ -61,9 +61,24 @@ void main() {
       expect(state.listoParaJugar, isTrue);
       expect(state.isDiceRolled, isTrue);
       expect(state.dados, [1, 4]);
-      expect(state.validPositions, contains(const Point<int>(0, 1)));
-      expect(state.numerosColocablesEn(0, 1), contains(4));
-      expect(state.numerosColocablesEn(1, 2), isNot(contains(4)));
+      expect(state.validPositions, isEmpty);
+
+      bloc.add(const PlaceNumberEvent(0, 1, 4));
+      await Future<void>.delayed(Duration.zero);
+      expect(bloc.state.numeroEn(0, 1), isNull);
+
+      final diceSelected = bloc.stream.firstWhere(
+        (next) => next.selectedDiceValue == 4,
+      );
+      bloc.add(const SelectDiceValueEvent(4));
+      final afterDiceSelection = await diceSelected;
+      expect(
+        afterDiceSelection.validPositions,
+        contains(const Point<int>(0, 1)),
+      );
+
+      expect(afterDiceSelection.numerosColocablesEn(0, 1), contains(4));
+      expect(afterDiceSelection.numerosColocablesEn(1, 2), isNot(contains(4)));
 
       bloc.add(const PlaceNumberEvent(0, 2, 4));
       await Future<void>.delayed(Duration.zero);

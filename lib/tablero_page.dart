@@ -39,7 +39,7 @@ class TableroPage extends StatelessWidget {
                       const SizedBox(width: 11),
                       const Text(
                         'BRILLANT',
-                        style: TextStyle(
+                        style: const TextStyle(
                           color: Color(0xFF183F38),
                           fontSize: 13,
                           fontWeight: FontWeight.w800,
@@ -165,7 +165,7 @@ class _ContenidoTablero extends StatelessWidget {
                 const Spacer(),
                 Text(
                   tipo == null ? '' : _nombreTipo(tipo),
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: Color(0xFF18332D),
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
@@ -208,6 +208,8 @@ class _MatrizTablero extends StatelessWidget {
             final seleccionada = state.casillaSeleccionada == (fila, columna);
             final origenMovimiento =
                 state.casillaOrigenMovimiento == (fila, columna);
+            final numeroInicialSeleccionado =
+                !state.listoParaJugar && marcada && numero != null;
             final valida = state.validPositions.contains(
               Point<int>(fila, columna),
             );
@@ -277,14 +279,12 @@ class _MatrizTablero extends StatelessWidget {
                                     columna,
                                   );
                                   final elegido = state.selectedDiceValue;
-                                  final numero =
-                                      elegido != null &&
-                                          opciones.contains(elegido)
-                                      ? elegido
-                                      : opciones.first;
-                                  context.read<BoardBloc>().add(
-                                    PlaceNumberEvent(fila, columna, numero),
-                                  );
+                                  if (elegido != null &&
+                                      opciones.contains(elegido)) {
+                                    context.read<BoardBloc>().add(
+                                      PlaceNumberEvent(fila, columna, elegido),
+                                    );
+                                  }
                                 }
                               : null
                         : marcada
@@ -299,8 +299,10 @@ class _MatrizTablero extends StatelessWidget {
                                 : const SizedBox.shrink()
                           : Text(
                               '$numero',
-                              style: const TextStyle(
-                                color: Color(0xFF18332D),
+                              style: TextStyle(
+                                color: numeroInicialSeleccionado
+                                    ? Color(0xFF2563EB)
+                                    : Color(0xFF18332D),
                                 fontSize: 18,
                                 fontWeight: FontWeight.w900,
                               ),
@@ -393,6 +395,9 @@ class _PanelNumeros extends StatelessWidget {
                 final disponible = origenMovimiento == null
                     ? state.numeroEn(casilla.$1, casilla.$2) == null
                     : numero == numeroMovimiento && casilla != origenMovimiento;
+                final yaSeleccionado = state.asignaciones.values.contains(
+                  numero,
+                );
                 return Expanded(
                   child: Padding(
                     padding: const EdgeInsets.only(right: 6),
@@ -403,6 +408,20 @@ class _PanelNumeros extends StatelessWidget {
                               BoardNumberAssigned(numero),
                             )
                           : null,
+                      style: OutlinedButton.styleFrom(
+                        backgroundColor: yaSeleccionado
+                            ? const Color(0xFFDBEAFE)
+                            : null,
+                        foregroundColor: yaSeleccionado
+                            ? const Color(0xFF1D4ED8)
+                            : null,
+                        side: BorderSide(
+                          color: yaSeleccionado
+                              ? const Color(0xFF2563EB)
+                              : const Color(0xFFBCC9C3),
+                          width: yaSeleccionado ? 2 : 1,
+                        ),
+                      ),
                       child: Text('$numero'),
                     ),
                   ),

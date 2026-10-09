@@ -247,10 +247,10 @@ class BoardState {
         .toList(growable: false);
   }
 
-  Set<Point<int>> calcularPosicionesValidas() => {
+  Set<Point<int>> calcularPosicionesValidas(int numero) => {
     for (var fila = 0; fila < matriz.length; fila++)
       for (var columna = 0; columna < matriz[fila].length; columna++)
-        if (numerosColocablesEn(fila, columna).isNotEmpty)
+        if (numerosColocablesEn(fila, columna).contains(numero))
           Point<int>(fila, columna),
   };
 
@@ -554,19 +554,23 @@ class BoardBloc extends Bloc<BoardEvent, BoardState> {
         isDiceRolled: true,
         clearSelectedDiceValue: true,
       );
-      emit(
-        conDados.copyWith(validPositions: conDados.calcularPosicionesValidas()),
-      );
+      emit(conDados.copyWith(validPositions: const {}));
     });
 
     on<SelectDiceValueEvent>((event, emit) {
       if (!state.isDiceRolled || !state.dados.contains(event.number)) return;
-      emit(state.copyWith(selectedDiceValue: event.number));
+      emit(
+        state.copyWith(
+          selectedDiceValue: event.number,
+          validPositions: state.calcularPosicionesValidas(event.number),
+        ),
+      );
     });
 
     on<PlaceNumberEvent>((event, emit) async {
       if (!state.listoParaJugar ||
           !state.isDiceRolled ||
+          state.selectedDiceValue != event.number ||
           !state
               .numerosColocablesEn(event.row, event.col)
               .contains(event.number)) {

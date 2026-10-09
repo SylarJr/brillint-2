@@ -72,6 +72,17 @@ void main() {
           find.byKey(const ValueKey('numero-1')),
         );
         expect(botonUno.onPressed, isNotNull);
+        expect(
+          botonUno.style.backgroundColor?.resolve({}),
+          const Color(0xFFDBEAFE),
+        );
+        final numeroInicial = tester.widget<Text>(
+          find.descendant(
+            of: find.byKey(const ValueKey('celda-0-2')),
+            matching: find.text('1'),
+          ),
+        );
+        expect(numeroInicial.style!.color, const Color(0xFF2563EB));
       }
 
       final numero = index + 1;
@@ -117,6 +128,19 @@ void main() {
           .onPressed,
       isNotNull,
     );
+
+    expect(bloc.state.validPositions, isEmpty);
+    final primeraCasillaDeJuego = find.byKey(const ValueKey('celda-0-1'));
+    await tester.ensureVisible(primeraCasillaDeJuego);
+    await tester.tap(primeraCasillaDeJuego);
+    await tester.pumpAndSettle();
+    expect(bloc.state.numeroEn(0, 1), isNull);
+
+    for (var index = 0; index < bloc.state.dados.length; index++) {
+      if (bloc.state.validPositions.isNotEmpty) break;
+      await tester.tap(find.byKey(ValueKey('dado-$index')));
+      await tester.pumpAndSettle();
+    }
 
     if (bloc.state.validPositions.isEmpty) {
       await tester.tap(find.byKey(const ValueKey('boton-pasar-turno')));
