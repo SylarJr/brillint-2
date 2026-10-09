@@ -113,6 +113,7 @@ void main() {
     expect(bloc.state.listoParaJugar, isTrue);
 
     expect(find.text('Listo para jugar'), findsOneWidget);
+    expect(find.text('6 DE 6 NÚMEROS COLOCADOS'), findsNothing);
     await tester.pumpAndSettle();
 
     expect(bloc.state.isDiceRolled, isTrue);

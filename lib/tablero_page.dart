@@ -133,46 +133,50 @@ class _ContenidoTablero extends StatelessWidget {
         const _MatrizTablero(),
         const SizedBox(height: 16),
         const _PanelNumeros(),
-        const SizedBox(height: 18),
         BlocBuilder<BoardBloc, BoardState>(
           builder: (context, state) {
+            if (state.listoParaJugar) return const SizedBox.shrink();
+
             final casilla = state.casillaSeleccionada;
             final tipo = casilla == null
                 ? null
                 : state.matriz[casilla.$1][casilla.$2];
-            return Row(
-              children: [
-                Container(
-                  width: 10,
-                  height: 10,
-                  decoration: BoxDecoration(
-                    color: tipo?.color ?? const Color(0xFF61726C),
-                    shape: BoxShape.circle,
+            return Padding(
+              padding: const EdgeInsets.only(top: 18),
+              child: Row(
+                children: [
+                  Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: tipo?.color ?? const Color(0xFF61726C),
+                      shape: BoxShape.circle,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 9),
-                Text(
-                  casilla == null
-                      ? '${state.asignaciones.length} DE 6 NÚMEROS COLOCADOS'
-                      : 'FILA ${casilla.$1 + 1}  /  COLUMNA ${casilla.$2 + 1}',
-                  style: const TextStyle(
-                    color: Color(0xFF52635D),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.8,
+                  const SizedBox(width: 9),
+                  Text(
+                    casilla == null
+                        ? '${state.asignaciones.length} DE 6 NÚMEROS COLOCADOS'
+                        : 'FILA ${casilla.$1 + 1}  /  COLUMNA ${casilla.$2 + 1}',
+                    style: const TextStyle(
+                      color: Color(0xFF52635D),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.8,
+                    ),
                   ),
-                ),
-                const Spacer(),
-                Text(
-                  tipo == null ? '' : _nombreTipo(tipo),
-                  style: TextStyle(
-                    color: Color(0xFF18332D),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.8,
+                  const Spacer(),
+                  Text(
+                    tipo == null ? '' : _nombreTipo(tipo),
+                    style: const TextStyle(
+                      color: Color(0xFF18332D),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.8,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             );
           },
         ),
