@@ -73,7 +73,7 @@ void main() {
         );
         expect(botonUno.onPressed, isNotNull);
         expect(
-          botonUno.style.backgroundColor?.resolve({}),
+          botonUno.style?.backgroundColor?.resolve({}),
           const Color(0xFFDBEAFE),
         );
         final numeroInicial = tester.widget<Text>(

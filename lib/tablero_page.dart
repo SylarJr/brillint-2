@@ -748,7 +748,7 @@ class _PanelPuntuacion extends StatelessWidget {
                   ),
               const SizedBox(height: 4),
               const Text(
-                'El amarillo cuenta como una sola zona: completa todas sus casillas para puntuar. Los demás colores puntúan por orden.',
+                'Cada zona puntúa por separado. El amarillo cuenta como una sola zona: completa todas sus casillas para puntuar.',
                 style: TextStyle(
                   color: Color(0xFF7A8983),
                   fontSize: 10,

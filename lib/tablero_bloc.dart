@@ -185,16 +185,15 @@ class BoardState {
   bool get completo => asignaciones.length == casillasMarcadas.length;
 
   List<BoardZoneScore> get historialPuntuacion {
-    final puestosPorTipo = <Type, int>{};
+    final puestosPorZona = <(int, int), int>{};
     final historial = <BoardZoneScore>[];
 
     for (final id in zonasCompletadas) {
       final zona = _zonaPorId(id);
       if (zona == null) continue;
 
-      final tipo = zona.tipo.runtimeType;
-      final puesto = (puestosPorTipo[tipo] ?? 0) + 1;
-      puestosPorTipo[tipo] = puesto;
+      final puesto = (puestosPorZona[id] ?? 0) + 1;
+      puestosPorZona[id] = puesto;
       historial.add(
         BoardZoneScore(
           zona: zona,

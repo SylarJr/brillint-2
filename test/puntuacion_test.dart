@@ -4,6 +4,21 @@ import 'package:flutter_application_1/tablero_bloc.dart';
 import 'package:flutter_application_1/tipo.dart';
 
 void main() {
+  test('cada zona verde puntúa independientemente como primer puesto', () {
+    final zonasVerdes = BoardState.zonas
+        .where((zona) => zona.tipo is TipoVerde)
+        .take(2)
+        .toList();
+    final estado = BoardState.inicial().copyWith(
+      zonasCompletadas: zonasVerdes.map((zona) => zona.id).toList(),
+    );
+
+    expect(zonasVerdes, hasLength(2));
+    expect(estado.historialPuntuacion.map((entrada) => entrada.puesto), [1, 1]);
+    expect(estado.historialPuntuacion.map((entrada) => entrada.puntos), [4, 4]);
+    expect(estado.puntuacionTotal, 8);
+  });
+
   test('todos los cuadros amarillos forman una sola zona puntuable', () {
     final zonasAmarillas = BoardState.zonas
         .where((zona) => zona.tipo is TipoAmarillo)
@@ -25,20 +40,11 @@ void main() {
     expect(zonasAmarillas.single.casillas, casillasAmarillas);
 
     final estado = BoardState.inicial().copyWith(
-      zonasCompletadas: [
-        zonasAmarillas.single.id,
-        zonaAzul.id,
-      ],
+      zonasCompletadas: [zonasAmarillas.single.id, zonaAzul.id],
     );
 
-    expect(estado.historialPuntuacion.map((entrada) => entrada.puesto), [
-      1,
-      1,
-    ]);
-    expect(estado.historialPuntuacion.map((entrada) => entrada.puntos), [
-      8,
-      7,
-    ]);
+    expect(estado.historialPuntuacion.map((entrada) => entrada.puesto), [1, 1]);
+    expect(estado.historialPuntuacion.map((entrada) => entrada.puntos), [8, 7]);
     expect(estado.puntuacionTotal, 15);
   });
 }
