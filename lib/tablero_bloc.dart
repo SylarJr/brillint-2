@@ -255,6 +255,21 @@ class BoardState {
 
   bool _cumpleReglaDeRegion(int fila, int columna, int numero) {
     final tipo = matriz[fila][columna];
+    if (tipo is TipoBlanco) {
+      final valoresBlancos = [
+        for (var filaBlanca = 0; filaBlanca < matriz.length; filaBlanca++)
+          for (
+            var columnaBlanca = 0;
+            columnaBlanca < matriz[filaBlanca].length;
+            columnaBlanca++
+          )
+            if (matriz[filaBlanca][columnaBlanca] is TipoBlanco &&
+                asignaciones[(filaBlanca, columnaBlanca)] != null)
+              asignaciones[(filaBlanca, columnaBlanca)]!,
+      ];
+      return tipo.puedeAgregarValor(valoresBlancos, numero);
+    }
+
     final pendientes = <(int, int)>[(fila, columna)];
     final visitadas = <(int, int)>{};
     final valoresRegion = <int>[];

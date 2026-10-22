@@ -2,7 +2,8 @@ import 'dart:math';
 
 import 'package:flutter_test/flutter_test.dart';
 
-import '../lib/tablero_bloc.dart';
+import 'package:flutter_application_1/tablero_bloc.dart';
+import 'package:flutter_application_1/tipo.dart';
 
 class _FixedRandom implements Random {
   _FixedRandom(this.values);
@@ -51,6 +52,29 @@ Future<void> _startGame(
 
 void main() {
   group('BoardBloc - turnos con dados', () {
+    test(
+      'blanco comparte la restricción aunque sus casillas estén separadas',
+      () {
+        final matriz = List.generate(
+          7,
+          (_) => List<Tipo>.filled(7, const TipoVerde()),
+        );
+        matriz[0][1] = const TipoBlanco();
+        matriz[6][6] = const TipoBlanco();
+        final state = BoardState(
+          matriz: matriz,
+          casillasMarcadas: const {},
+          asignaciones: const {(0, 0): 2, (6, 6): 3},
+          casillaSeleccionada: null,
+          listoParaJugar: true,
+          dados: const [1, 2],
+          isDiceRolled: true,
+        );
+
+        expect(state.numerosColocablesEn(0, 1), isEmpty);
+      },
+    );
+
     test('resalta y coloca solo una jugada válida, sin sobrescribir', () async {
       final bloc = BoardBloc(random: _FixedRandom([0, 3]));
       addTearDown(bloc.close);

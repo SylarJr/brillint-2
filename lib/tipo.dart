@@ -73,3 +73,38 @@ class TipoVerde extends Tipo {
   bool puedeAgregarValor(List<int> actuales, int posible) => true;
 }
 
+class TipoBlanco extends Tipo {
+  const TipoBlanco()
+    : super(
+        color: Colors.white,
+        descripcion: 'Todas las casillas blancas deben tener el mismo número.',
+      );
+
+  @override
+  bool puedeAgregarValor(List<int> actuales, int posible) =>
+      actuales.isEmpty || actuales.every((valor) => valor == posible);
+}
+
+class TipoNaranjaSuperior extends Tipo {
+  const TipoNaranjaSuperior()
+    : super(
+        color: Colors.orange,
+        descripcion: 'La zona naranja superior solo permite números del 4 al 6.',
+      );
+
+  @override
+  bool puedeAgregarValor(List<int> actuales, int posible) =>
+      posible >= 4 && posible <= 6;
+}
+
+class TipoNaranjaInferior extends Tipo {
+  const TipoNaranjaInferior()
+    : super(
+        color: Colors.orange,
+        descripcion: 'La zona naranja inferior solo permite números del 1 al 3.',
+      );
+
+  @override
+  bool puedeAgregarValor(List<int> actuales, int posible) =>
+      posible >= 1 && posible <= 3;
+}

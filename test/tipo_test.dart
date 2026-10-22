@@ -39,6 +39,32 @@ void main() {
       expect(tipo.puedeAgregarValor([1, 2, 3], 9), isTrue);
     });
 
+    test('blanco solo permite repetir el mismo número en todas sus casillas', () {
+      const tipo = TipoBlanco();
+
+      expect(tipo.puedeAgregarValor([], 3), isTrue);
+      expect(tipo.puedeAgregarValor([3, 3], 3), isTrue);
+      expect(tipo.puedeAgregarValor([3], 4), isFalse);
+    });
+
+    test('naranja superior solo permite números del 4 al 6', () {
+      const tipo = TipoNaranjaSuperior();
+
+      expect(tipo.puedeAgregarValor([], 3), isFalse);
+      expect(tipo.puedeAgregarValor([], 4), isTrue);
+      expect(tipo.puedeAgregarValor([5], 6), isTrue);
+      expect(tipo.puedeAgregarValor([], 7), isFalse);
+    });
+
+    test('naranja inferior solo permite números del 1 al 3', () {
+      const tipo = TipoNaranjaInferior();
+
+      expect(tipo.puedeAgregarValor([], 0), isFalse);
+      expect(tipo.puedeAgregarValor([], 1), isTrue);
+      expect(tipo.puedeAgregarValor([2], 3), isTrue);
+      expect(tipo.puedeAgregarValor([], 4), isFalse);
+    });
+
     test('cada tipo expone sus puntuaciones por puesto', () {
       const tipos = <Tipo, Map<int, int>>{
         TipoAzul(): {1: 7, 2: 5, 3: 3},
@@ -46,6 +72,9 @@ void main() {
         TipoRojo(): {1: 6, 2: 4, 3: 2},
         TipoMorado(): {1: 6, 2: 4, 3: 2},
         TipoAmarillo(): {1: 8, 2: 6, 3: 4},
+        TipoBlanco(): {},
+        TipoNaranjaSuperior(): {},
+        TipoNaranjaInferior(): {},
       };
 
       for (final entry in tipos.entries) {
