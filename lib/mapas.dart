@@ -1,0 +1,10 @@
+import 'mapas/mapa_1.dart';
+import 'mapas/mapa_2.dart';
+import 'mapas/mapa_3.dart';
+
+export 'mapas/mapa.dart';
+export 'mapas/mapa_1.dart';
+export 'mapas/mapa_2.dart';
+export 'mapas/mapa_3.dart';
+
+const mapasTablero = [mapa1, mapa2, mapa3];

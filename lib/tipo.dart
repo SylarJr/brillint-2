@@ -17,7 +17,7 @@ abstract class Tipo {
 class TipoAzul extends Tipo {
   const TipoAzul({super.puntuaciones = const {1: 7, 2: 5, 3: 3}})
     : super(
-        color: Colors.blue,
+        color: Colors.lightBlue,
         descripcion: 'Todos los números de la zona deben ser iguales.',
       );
 
@@ -29,7 +29,7 @@ class TipoAzul extends Tipo {
 class TipoRojo extends Tipo {
   const TipoRojo({super.puntuaciones = const {1: 6, 2: 4, 3: 2}})
     : super(
-        color: const Color.fromARGB(255, 255, 17, 0),
+        color: Colors.red,
         descripcion: 'Todos los números de la zona deben ser distintos.',
       );
 
@@ -76,7 +76,7 @@ class TipoVerde extends Tipo {
 class TipoBlanco extends Tipo {
   const TipoBlanco()
     : super(
-        color: Colors.white,
+        color: const Color(0xFFE0E0E0),
         descripcion: 'Todas las casillas blancas deben tener el mismo número.',
       );
 
@@ -89,7 +89,8 @@ class TipoNaranjaSuperior extends Tipo {
   const TipoNaranjaSuperior()
     : super(
         color: Colors.orange,
-        descripcion: 'La zona naranja superior solo permite números del 4 al 6.',
+        descripcion:
+            'La zona naranja superior solo permite números del 4 al 6.',
       );
 
   @override
@@ -101,7 +102,8 @@ class TipoNaranjaInferior extends Tipo {
   const TipoNaranjaInferior()
     : super(
         color: Colors.orange,
-        descripcion: 'La zona naranja inferior solo permite números del 1 al 3.',
+        descripcion:
+            'La zona naranja inferior solo permite números del 1 al 3.',
       );
 
   @override

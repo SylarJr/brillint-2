@@ -39,13 +39,16 @@ void main() {
       expect(tipo.puedeAgregarValor([1, 2, 3], 9), isTrue);
     });
 
-    test('blanco solo permite repetir el mismo número en todas sus casillas', () {
-      const tipo = TipoBlanco();
+    test(
+      'blanco solo permite repetir el mismo número en todas sus casillas',
+      () {
+        const tipo = TipoBlanco();
 
-      expect(tipo.puedeAgregarValor([], 3), isTrue);
-      expect(tipo.puedeAgregarValor([3, 3], 3), isTrue);
-      expect(tipo.puedeAgregarValor([3], 4), isFalse);
-    });
+        expect(tipo.puedeAgregarValor([], 3), isTrue);
+        expect(tipo.puedeAgregarValor([3, 3], 3), isTrue);
+        expect(tipo.puedeAgregarValor([3], 4), isFalse);
+      },
+    );
 
     test('naranja superior solo permite números del 4 al 6', () {
       const tipo = TipoNaranjaSuperior();
@@ -82,7 +85,9 @@ void main() {
         expect(entry.key.descripcion, isNotEmpty);
       }
 
-      expect(const TipoAzul().color, Colors.blue);
+      expect(const TipoAzul().color, Colors.lightBlue);
+      expect(const TipoRojo().color, Colors.red);
+      expect(const TipoBlanco().color, const Color(0xFFE0E0E0));
     });
   });
 }

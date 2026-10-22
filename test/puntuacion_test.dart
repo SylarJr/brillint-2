@@ -5,11 +5,12 @@ import 'package:flutter_application_1/tipo.dart';
 
 void main() {
   test('cada zona verde puntúa independientemente como primer puesto', () {
-    final zonasVerdes = BoardState.zonas
+    final estadoInicial = BoardState.inicial();
+    final zonasVerdes = estadoInicial.zonas
         .where((zona) => zona.tipo is TipoVerde)
         .take(2)
         .toList();
-    final estado = BoardState.inicial().copyWith(
+    final estado = estadoInicial.copyWith(
       zonasCompletadas: zonasVerdes.map((zona) => zona.id).toList(),
     );
 
@@ -20,7 +21,8 @@ void main() {
   });
 
   test('todos los cuadros amarillos forman una sola zona puntuable', () {
-    final zonasAmarillas = BoardState.zonas
+    final estadoInicial = BoardState.inicial();
+    final zonasAmarillas = estadoInicial.zonas
         .where((zona) => zona.tipo is TipoAmarillo)
         .toList();
     final casillasAmarillas = {
@@ -33,13 +35,13 @@ void main() {
           if (BoardState.matrizInicial[fila][columna] is TipoAmarillo)
             (fila, columna),
     };
-    final zonaAzul = BoardState.zonas.firstWhere(
+    final zonaAzul = estadoInicial.zonas.firstWhere(
       (zona) => zona.tipo is TipoAzul,
     );
     expect(zonasAmarillas, hasLength(1));
     expect(zonasAmarillas.single.casillas, casillasAmarillas);
 
-    final estado = BoardState.inicial().copyWith(
+    final estado = estadoInicial.copyWith(
       zonasCompletadas: [zonasAmarillas.single.id, zonaAzul.id],
     );
 

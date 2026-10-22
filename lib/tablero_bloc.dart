@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import 'mapas.dart';
 import 'tipo.dart';
 
 sealed class BoardEvent {
@@ -23,6 +24,12 @@ class BoardNumberAssigned extends BoardEvent {
 
 class BoardReadyPressed extends BoardEvent {
   const BoardReadyPressed();
+}
+
+class BoardMapSelected extends BoardEvent {
+  const BoardMapSelected(this.index);
+
+  final int index;
 }
 
 class RollDiceEvent extends BoardEvent {
@@ -84,73 +91,11 @@ class BoardState {
     this.validPositions = const {},
     this.isDiceRolled = false,
     this.selectedDiceValue,
+    this.mapaSeleccionado = 0,
   });
 
-  static const List<List<Tipo>> matrizInicial = [
-    [
-      TipoAmarillo(),
-      TipoVerde(),
-      TipoAzul(),
-      TipoMorado(),
-      TipoMorado(),
-      TipoMorado(),
-      TipoAmarillo(),
-    ],
-    [
-      TipoVerde(),
-      TipoVerde(),
-      TipoAzul(),
-      TipoAzul(),
-      TipoMorado(),
-      TipoMorado(),
-      TipoVerde(),
-    ],
-    [
-      TipoVerde(),
-      TipoRojo(),
-      TipoRojo(),
-      TipoAzul(),
-      TipoMorado(),
-      TipoVerde(),
-      TipoVerde(),
-    ],
-    [
-      TipoVerde(),
-      TipoRojo(),
-      TipoMorado(),
-      TipoAmarillo(),
-      TipoVerde(),
-      TipoVerde(),
-      TipoVerde(),
-    ],
-    [
-      TipoVerde(),
-      TipoRojo(),
-      TipoMorado(),
-      TipoMorado(),
-      TipoRojo(),
-      TipoRojo(),
-      TipoAzul(),
-    ],
-    [
-      TipoRojo(),
-      TipoRojo(),
-      TipoMorado(),
-      TipoRojo(),
-      TipoRojo(),
-      TipoAzul(),
-      TipoAzul(),
-    ],
-    [
-      TipoAmarillo(),
-      TipoMorado(),
-      TipoMorado(),
-      TipoRojo(),
-      TipoRojo(),
-      TipoAzul(),
-      TipoAmarillo(),
-    ],
-  ];
+  static const mapas = mapasTablero;
+  static final List<List<Tipo>> matrizInicial = mapa1.matriz;
 
   static const Set<(int, int)> casillasObjetivo = {
     (0, 2),
@@ -162,7 +107,6 @@ class BoardState {
   };
 
   static const List<int> numerosPermitidos = [1, 2, 3, 4, 5, 6];
-  static final List<BoardZone> zonas = _crearZonas();
 
   final List<List<Tipo>> matriz;
   final Set<(int, int)> casillasMarcadas;
@@ -175,6 +119,9 @@ class BoardState {
   final Set<Point<int>> validPositions;
   final bool isDiceRolled;
   final int? selectedDiceValue;
+  final int mapaSeleccionado;
+
+  List<BoardZone> get zonas => _crearZonas(matriz);
 
   List<int> get dice => dados;
 
@@ -246,6 +193,21 @@ class BoardState {
         .toList(growable: false);
   }
 
+  bool puedeAsignarNumero(
+    int fila,
+    int columna,
+    int numero, {
+    Set<(int, int)> excluir = const {},
+  }) {
+    if (fila < 0 ||
+        fila >= matriz.length ||
+        columna < 0 ||
+        columna >= matriz[fila].length) {
+      return false;
+    }
+    return _cumpleReglaDeRegion(fila, columna, numero, excluir: excluir);
+  }
+
   Set<Point<int>> calcularPosicionesValidas(int numero) => {
     for (var fila = 0; fila < matriz.length; fila++)
       for (var columna = 0; columna < matriz[fila].length; columna++)
@@ -253,7 +215,12 @@ class BoardState {
           Point<int>(fila, columna),
   };
 
-  bool _cumpleReglaDeRegion(int fila, int columna, int numero) {
+  bool _cumpleReglaDeRegion(
+    int fila,
+    int columna,
+    int numero, {
+    Set<(int, int)> excluir = const {},
+  }) {
     final tipo = matriz[fila][columna];
     if (tipo is TipoBlanco) {
       final valoresBlancos = [
@@ -264,6 +231,7 @@ class BoardState {
             columnaBlanca++
           )
             if (matriz[filaBlanca][columnaBlanca] is TipoBlanco &&
+                !excluir.contains((filaBlanca, columnaBlanca)) &&
                 asignaciones[(filaBlanca, columnaBlanca)] != null)
               asignaciones[(filaBlanca, columnaBlanca)]!,
       ];
@@ -282,7 +250,7 @@ class BoardState {
         continue;
       }
 
-      final valor = asignaciones[actual];
+      final valor = excluir.contains(actual) ? null : asignaciones[actual];
       if (valor != null) valoresRegion.add(valor);
       pendientes.addAll(
         [
@@ -304,55 +272,50 @@ class BoardState {
     return tipo.puedeAgregarValor(valoresRegion, numero);
   }
 
-  factory BoardState.inicial() => BoardState(
-    matriz: matrizInicial,
+  factory BoardState.inicial({int mapaSeleccionado = 0}) => BoardState(
+    matriz: mapas[mapaSeleccionado].matriz,
     casillasMarcadas: casillasObjetivo,
     asignaciones: const {},
     casillaSeleccionada: null,
     listoParaJugar: false,
+    mapaSeleccionado: mapaSeleccionado,
     casillaOrigenMovimiento: null,
     dados: const [],
     validPositions: const {},
     isDiceRolled: false,
   );
 
-  static List<BoardZone> _crearZonas() {
+  static List<BoardZone> _crearZonas(List<List<Tipo>> matriz) {
     final zonas = <BoardZone>[];
     final visitadas = <(int, int)>{};
-    final casillasAmarillas = <(int, int)>{};
 
-    for (var fila = 0; fila < matrizInicial.length; fila++) {
-      for (var columna = 0; columna < matrizInicial[fila].length; columna++) {
+    for (var fila = 0; fila < matriz.length; fila++) {
+      for (var columna = 0; columna < matriz[fila].length; columna++) {
         final inicio = (fila, columna);
         if (visitadas.contains(inicio)) continue;
 
-        final tipo = matrizInicial[fila][columna];
-        if (tipo is TipoAmarillo) {
-          final pendientes = <(int, int)>[inicio];
-          while (pendientes.isNotEmpty) {
-            final actual = pendientes.removeLast();
-            if (visitadas.contains(actual)) continue;
-            final (actualFila, actualColumna) = actual;
-            if (matrizInicial[actualFila][actualColumna] is! TipoAmarillo) {
-              continue;
-            }
-
-            visitadas.add(actual);
-            casillasAmarillas.add(actual);
-            pendientes.addAll([
-              (actualFila - 1, actualColumna),
-              (actualFila + 1, actualColumna),
-              (actualFila, actualColumna - 1),
-              (actualFila, actualColumna + 1),
-            ].where(
-              (posicion) =>
-                  posicion.$1 >= 0 &&
-                  posicion.$1 < matrizInicial.length &&
-                  posicion.$2 >= 0 &&
-                  posicion.$2 < matrizInicial[posicion.$1].length &&
-                  !visitadas.contains(posicion),
-            ));
-          }
+        final tipo = matriz[fila][columna];
+        if (tipo is TipoAmarillo || tipo is TipoBlanco) {
+          final casillasGlobales = <(int, int)>{
+            for (var filaGlobal = 0; filaGlobal < matriz.length; filaGlobal++)
+              for (
+                var columnaGlobal = 0;
+                columnaGlobal < matriz[filaGlobal].length;
+                columnaGlobal++
+              )
+                if (matriz[filaGlobal][columnaGlobal].runtimeType ==
+                    tipo.runtimeType)
+                  (filaGlobal, columnaGlobal),
+          };
+          visitadas.addAll(casillasGlobales);
+          final id = tipo is TipoAmarillo ? (-1, -1) : (-2, -2);
+          zonas.add(
+            BoardZone(
+              id: id,
+              tipo: tipo,
+              casillas: Set.unmodifiable(casillasGlobales),
+            ),
+          );
           continue;
         }
 
@@ -363,26 +326,28 @@ class BoardState {
           final actual = pendientes.removeLast();
           if (visitadas.contains(actual)) continue;
           final (actualFila, actualColumna) = actual;
-          if (matrizInicial[actualFila][actualColumna].runtimeType !=
+          if (matriz[actualFila][actualColumna].runtimeType !=
               tipo.runtimeType) {
             continue;
           }
 
           visitadas.add(actual);
           casillas.add(actual);
-          pendientes.addAll([
-            (actualFila - 1, actualColumna),
-            (actualFila + 1, actualColumna),
-            (actualFila, actualColumna - 1),
-            (actualFila, actualColumna + 1),
-          ].where(
-            (posicion) =>
-                posicion.$1 >= 0 &&
-                posicion.$1 < matrizInicial.length &&
-                posicion.$2 >= 0 &&
-                posicion.$2 < matrizInicial[posicion.$1].length &&
-                !visitadas.contains(posicion),
-          ));
+          pendientes.addAll(
+            [
+              (actualFila - 1, actualColumna),
+              (actualFila + 1, actualColumna),
+              (actualFila, actualColumna - 1),
+              (actualFila, actualColumna + 1),
+            ].where(
+              (posicion) =>
+                  posicion.$1 >= 0 &&
+                  posicion.$1 < matriz.length &&
+                  posicion.$2 >= 0 &&
+                  posicion.$2 < matriz[posicion.$1].length &&
+                  !visitadas.contains(posicion),
+            ),
+          );
         }
 
         zonas.add(
@@ -395,20 +360,10 @@ class BoardState {
       }
     }
 
-    if (casillasAmarillas.isNotEmpty) {
-      zonas.add(
-        BoardZone(
-          id: (-1, -1),
-          tipo: const TipoAmarillo(),
-          casillas: Set.unmodifiable(casillasAmarillas),
-        ),
-      );
-    }
-
     return List.unmodifiable(zonas);
   }
 
-  static BoardZone? _zonaPorId((int, int) id) {
+  BoardZone? _zonaPorId((int, int) id) {
     for (final zona in zonas) {
       if (zona.id == id) return zona;
     }
@@ -425,12 +380,14 @@ class BoardState {
     Set<Point<int>>? validPositions,
     bool? isDiceRolled,
     int? selectedDiceValue,
+    int? mapaSeleccionado,
     bool clearTurn = false,
     bool clearSelection = false,
     bool clearMoveSource = false,
     bool clearSelectedDiceValue = false,
   }) => BoardState(
     matriz: matriz,
+    mapaSeleccionado: mapaSeleccionado ?? this.mapaSeleccionado,
     casillasMarcadas: casillasMarcadas,
     asignaciones: asignaciones ?? this.asignaciones,
     casillaSeleccionada: clearSelection
@@ -486,6 +443,16 @@ class BoardBloc extends Bloc<BoardEvent, BoardState> {
       emit(state.copyWith(casillaSeleccionada: posicion));
     });
 
+    on<BoardMapSelected>((event, emit) {
+      if (state.listoParaJugar ||
+          event.index < 0 ||
+          event.index >= BoardState.mapas.length ||
+          event.index == state.mapaSeleccionado) {
+        return;
+      }
+      emit(BoardState.inicial(mapaSeleccionado: event.index));
+    });
+
     on<BoardNumberAssigned>((event, emit) {
       final casilla = state.casillaSeleccionada;
       if (casilla == null ||
@@ -501,6 +468,22 @@ class BoardBloc extends Bloc<BoardEvent, BoardState> {
         if (!state.esCasillaMarcada(origen.$1, origen.$2) ||
             state.asignaciones[origen] != event.numero ||
             casilla == origen) {
+          return;
+        }
+        final posicionesExcluidas = {origen, casilla};
+        if (!state.puedeAsignarNumero(
+              casilla.$1,
+              casilla.$2,
+              event.numero,
+              excluir: posicionesExcluidas,
+            ) ||
+            (valorDestino != null &&
+                !state.puedeAsignarNumero(
+                  origen.$1,
+                  origen.$2,
+                  valorDestino,
+                  excluir: posicionesExcluidas,
+                ))) {
           return;
         }
 
@@ -531,6 +514,14 @@ class BoardBloc extends Bloc<BoardEvent, BoardState> {
         if (!state.esCasillaMarcada(origenExistente.$1, origenExistente.$2)) {
           return;
         }
+        if (!state.puedeAsignarNumero(
+          casilla.$1,
+          casilla.$2,
+          event.numero,
+          excluir: {origenExistente},
+        )) {
+          return;
+        }
         final nuevasAsignaciones = Map<(int, int), int>.of(state.asignaciones)
           ..remove(origenExistente);
         nuevasAsignaciones[casilla] = event.numero;
@@ -541,6 +532,10 @@ class BoardBloc extends Bloc<BoardEvent, BoardState> {
           ),
         );
         _startGameIfSetupComplete(emit);
+        return;
+      }
+
+      if (!state.puedeAsignarNumero(casilla.$1, casilla.$2, event.numero)) {
         return;
       }
 
@@ -597,10 +592,10 @@ class BoardBloc extends Bloc<BoardEvent, BoardState> {
             ...state.asignaciones,
             (event.row, event.col): event.number,
           }),
-          zonasCompletadas: _registrarZonasCompletadas(
-            state.asignaciones,
-            (event.row, event.col),
-          ),
+          zonasCompletadas: _registrarZonasCompletadas(state.asignaciones, (
+            event.row,
+            event.col,
+          )),
           clearTurn: true,
         ),
       );
@@ -639,7 +634,7 @@ class BoardBloc extends Bloc<BoardEvent, BoardState> {
     final nuevasAsignaciones = {...asignaciones, posicionAgregada: 0};
     final completadas = List<(int, int)>.of(state.zonasCompletadas);
 
-    for (final zona in BoardState.zonas) {
+    for (final zona in state.zonas) {
       if (zona.casillas.contains(posicionAgregada) &&
           !completadas.contains(zona.id) &&
           zona.casillas.every(nuevasAsignaciones.containsKey)) {
@@ -652,7 +647,7 @@ class BoardBloc extends Bloc<BoardEvent, BoardState> {
 
   List<(int, int)> _zonasCompletasEn(Map<(int, int), int> asignaciones) =>
       List.unmodifiable([
-        for (final zona in BoardState.zonas)
+        for (final zona in state.zonas)
           if (zona.casillas.every(asignaciones.containsKey)) zona.id,
       ]);
 

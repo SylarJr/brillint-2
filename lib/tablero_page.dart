@@ -47,12 +47,43 @@ class TableroPage extends StatelessWidget {
                         ),
                       ),
                       const Spacer(),
-                      const Text(
-                        '7 × 7',
-                        style: TextStyle(
-                          color: Color(0xFF61726C),
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
+                      BlocBuilder<BoardBloc, BoardState>(
+                        builder: (context, state) => Row(
+                          children: [
+                            const Text(
+                              '7 × 7',
+                              style: TextStyle(
+                                color: Color(0xFF61726C),
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            DropdownButton<int>(
+                              key: const ValueKey('selector-mapa'),
+                              value: state.mapaSeleccionado,
+                              onChanged: state.listoParaJugar
+                                  ? null
+                                  : (index) {
+                                      if (index != null) {
+                                        context.read<BoardBloc>().add(
+                                          BoardMapSelected(index),
+                                        );
+                                      }
+                                    },
+                              items: [
+                                for (
+                                  var index = 0;
+                                  index < BoardState.mapas.length;
+                                  index++
+                                )
+                                  DropdownMenuItem(
+                                    value: index,
+                                    child: Text(BoardState.mapas[index].nombre),
+                                  ),
+                              ],
+                            ),
+                          ],
                         ),
                       ),
                     ],
@@ -417,12 +448,30 @@ class _PanelNumeros extends StatelessWidget {
                 final yaSeleccionado = state.asignaciones.values.contains(
                   numero,
                 );
+                final posicionOrigen =
+                    origenMovimiento ??
+                    state.asignaciones.entries
+                        .where((entrada) => entrada.value == numero)
+                        .firstOrNull
+                        ?.key;
+                final posicionesExcluidas = {
+                  ?posicionOrigen,
+                  if (origenMovimiento != null) casilla,
+                };
+                final puedeAsignarse =
+                    disponible &&
+                    state.puedeAsignarNumero(
+                      casilla.$1,
+                      casilla.$2,
+                      numero,
+                      excluir: posicionesExcluidas,
+                    );
                 return Expanded(
                   child: Padding(
                     padding: const EdgeInsets.only(right: 6),
                     child: OutlinedButton(
                       key: ValueKey('numero-$numero'),
-                      onPressed: disponible
+                      onPressed: puedeAsignarse
                           ? () => context.read<BoardBloc>().add(
                               BoardNumberAssigned(numero),
                             )
@@ -789,6 +838,9 @@ class _Leyenda extends StatelessWidget {
       TipoAzul(),
       TipoMorado(),
       TipoRojo(),
+      TipoBlanco(),
+      TipoNaranjaSuperior(),
+      TipoNaranjaInferior(),
     ];
 
     return Wrap(
@@ -823,5 +875,9 @@ class _Leyenda extends StatelessWidget {
   }
 }
 
-String _nombreTipo(Tipo tipo) =>
-    tipo.runtimeType.toString().replaceFirst('Tipo', '').toUpperCase();
+String _nombreTipo(Tipo tipo) => switch (tipo) {
+  TipoBlanco() => 'BLANCO',
+  TipoNaranjaSuperior() => 'NARANJA 4-6',
+  TipoNaranjaInferior() => 'NARANJA 1-3',
+  _ => tipo.runtimeType.toString().replaceFirst('Tipo', '').toUpperCase(),
+};

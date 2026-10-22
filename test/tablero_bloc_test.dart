@@ -53,6 +53,72 @@ Future<void> _startGame(
 void main() {
   group('BoardBloc - turnos con dados', () {
     test(
+      'seleccionar un mapa nuevo lo carga y reinicia la preparación',
+      () async {
+        final bloc = BoardBloc(random: _FixedRandom([0, 3]));
+        addTearDown(bloc.close);
+
+        final selected = bloc.stream.firstWhere(
+          (state) => state.mapaSeleccionado == 1,
+        );
+        bloc.add(const BoardMapSelected(1));
+        final state = await selected;
+
+        expect(state.matriz, BoardState.mapas[1].matriz);
+        expect(state.asignaciones, isEmpty);
+        expect(state.casillaSeleccionada, isNull);
+        expect(state.listoParaJugar, isFalse);
+      },
+    );
+
+    test('no permite cambiar el mapa después de iniciar la partida', () async {
+      final bloc = BoardBloc(random: _FixedRandom([0, 3]));
+      addTearDown(bloc.close);
+      await _startGame(bloc);
+
+      bloc.add(const BoardMapSelected(1));
+      await Future<void>.delayed(Duration.zero);
+
+      expect(bloc.state.mapaSeleccionado, 0);
+    });
+
+    test('valida los números naranja al preparar el mapa 3', () async {
+      final bloc = BoardBloc(random: _FixedRandom([0, 3]));
+      addTearDown(bloc.close);
+
+      final mapSelected = bloc.stream.firstWhere(
+        (state) => state.mapaSeleccionado == 2,
+      );
+      bloc.add(const BoardMapSelected(2));
+      await mapSelected;
+
+      bloc.add(const BoardCellSelected(0, 2));
+      await bloc.stream.firstWhere(
+        (state) => state.casillaSeleccionada == (0, 2),
+      );
+      bloc.add(const BoardNumberAssigned(3));
+      await Future<void>.delayed(Duration.zero);
+      expect(bloc.state.numeroEn(0, 2), isNull);
+
+      final upperNumberAssigned = bloc.stream.firstWhere(
+        (state) => state.numeroEn(0, 2) == 4,
+      );
+      bloc.add(const BoardNumberAssigned(4));
+      await upperNumberAssigned;
+
+      final lowerCellSelected = bloc.stream.firstWhere(
+        (state) => state.casillaSeleccionada == (6, 4),
+      );
+      bloc.add(const BoardCellSelected(6, 4));
+      await lowerCellSelected;
+      final lowerNumberAssigned = bloc.stream.firstWhere(
+        (state) => state.numeroEn(6, 4) == 1,
+      );
+      bloc.add(const BoardNumberAssigned(1));
+      await lowerNumberAssigned;
+    });
+
+    test(
       'blanco comparte la restricción aunque sus casillas estén separadas',
       () {
         final matriz = List.generate(
@@ -102,7 +168,7 @@ void main() {
       );
 
       expect(afterDiceSelection.numerosColocablesEn(0, 1), contains(4));
-      expect(afterDiceSelection.numerosColocablesEn(1, 2), isNot(contains(4)));
+      expect(afterDiceSelection.numerosColocablesEn(0, 0), isNot(contains(4)));
 
       bloc.add(const PlaceNumberEvent(0, 2, 4));
       await Future<void>.delayed(Duration.zero);
