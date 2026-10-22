@@ -301,14 +301,29 @@ class _MatrizTablero extends StatelessWidget {
                           ? marcada
                                 ? const _MarcadorPendiente()
                                 : const SizedBox.shrink()
-                          : Text(
-                              '$numero',
-                              style: TextStyle(
-                                color: numeroInicialSeleccionado
-                                    ? Color(0xFF2563EB)
-                                    : Color(0xFF18332D),
-                                fontSize: 18,
-                                fontWeight: FontWeight.w900,
+                          : TweenAnimationBuilder<double>(
+                              key: ValueKey(
+                                'numero-celda-$fila-$columna-$numero',
+                              ),
+                              tween: Tween(begin: 0, end: 1),
+                              duration: const Duration(milliseconds: 320),
+                              curve: Curves.easeOutBack,
+                              builder: (context, progress, child) => Opacity(
+                                opacity: progress.clamp(0.0, 1.0),
+                                child: Transform.scale(
+                                  scale: progress,
+                                  child: child,
+                                ),
+                              ),
+                              child: Text(
+                                '$numero',
+                                style: TextStyle(
+                                  color: numeroInicialSeleccionado
+                                      ? Color(0xFF2563EB)
+                                      : Color(0xFF18332D),
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w900,
+                                ),
                               ),
                             ),
                     ),

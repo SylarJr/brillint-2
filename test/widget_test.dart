@@ -139,12 +139,16 @@ void main() {
 
     for (var index = 0; index < bloc.state.dados.length; index++) {
       if (bloc.state.validPositions.isNotEmpty) break;
-      await tester.tap(find.byKey(ValueKey('dado-$index')));
+      final dado = find.byKey(ValueKey('dado-$index'));
+      await tester.ensureVisible(dado);
+      await tester.tap(dado);
       await tester.pumpAndSettle();
     }
 
     if (bloc.state.validPositions.isEmpty) {
-      await tester.tap(find.byKey(const ValueKey('boton-pasar-turno')));
+      final botonPasarTurno = find.byKey(const ValueKey('boton-pasar-turno'));
+      await tester.ensureVisible(botonPasarTurno);
+      await tester.tap(botonPasarTurno);
     } else {
       final position = bloc.state.validPositions.first;
       final cell = find.byKey(ValueKey('celda-${position.x}-${position.y}'));
