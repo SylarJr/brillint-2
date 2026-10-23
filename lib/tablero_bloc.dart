@@ -95,16 +95,10 @@ class BoardState {
   });
 
   static const mapas = mapasTablero;
-  static final List<List<Tipo>> matrizInicial = mapa1.matriz;
+  static final List<List<Tipo>> matrizInicial = mapaInicial.matriz;
 
-  static const Set<(int, int)> casillasObjetivo = {
-    (0, 2),
-    (1, 5),
-    (3, 1),
-    (3, 4),
-    (5, 2),
-    (6, 4),
-  };
+  static const Set<(int, int)> casillasObjetivo =
+      puntosInicialesPredeterminados;
 
   static const List<int> numerosPermitidos = [1, 2, 3, 4, 5, 6];
 
@@ -274,7 +268,7 @@ class BoardState {
 
   factory BoardState.inicial({int mapaSeleccionado = 0}) => BoardState(
     matriz: mapas[mapaSeleccionado].matriz,
-    casillasMarcadas: casillasObjetivo,
+    casillasMarcadas: mapas[mapaSeleccionado].puntosIniciales,
     asignaciones: const {},
     casillaSeleccionada: null,
     listoParaJugar: false,

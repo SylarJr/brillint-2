@@ -3,6 +3,7 @@ import 'mapa.dart';
 
 const mapa1 = MapaTablero(
   nombre: 'Mapa 1',
+  puntosIniciales: {(0, 4), (2, 0), (3, 2), (4, 5), (5, 1), (6, 4)},
   matriz: [
     [
       TipoMorado(),
@@ -27,7 +28,7 @@ const mapa1 = MapaTablero(
       TipoRojo(),
       TipoRojo(),
       TipoAzul(),
-      TipoRojo(),
+      TipoAzul(),
       TipoRojo(),
       TipoVerde(),
     ],
@@ -43,7 +44,7 @@ const mapa1 = MapaTablero(
     [
       TipoVerde(),
       TipoRojo(),
-      TipoRojo(),
+      TipoAzul(),
       TipoAzul(),
       TipoRojo(),
       TipoRojo(),

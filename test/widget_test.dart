@@ -13,9 +13,7 @@ import 'package:flutter_application_1/main.dart';
 import 'package:flutter_application_1/tablero_bloc.dart';
 
 void main() {
-  testWidgets('permite elegir uno de los tres mapas', (
-    WidgetTester tester,
-  ) async {
+  testWidgets('permite elegir uno de los mapas', (WidgetTester tester) async {
     await tester.pumpWidget(const MyApp());
 
     await tester.tap(find.byKey(const ValueKey('selector-mapa')));
@@ -26,7 +24,7 @@ void main() {
     final bloc = tester
         .element(find.byKey(const ValueKey('selector-mapa')))
         .read<BoardBloc>();
-    expect(bloc.state.mapaSeleccionado, 1);
+    expect(bloc.state.mapaSeleccionado, 2);
     expect(bloc.state.asignaciones, isEmpty);
   });
 

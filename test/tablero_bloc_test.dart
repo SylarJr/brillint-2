@@ -87,9 +87,9 @@ void main() {
       addTearDown(bloc.close);
 
       final mapSelected = bloc.stream.firstWhere(
-        (state) => state.mapaSeleccionado == 2,
+        (state) => state.mapaSeleccionado == 3,
       );
-      bloc.add(const BoardMapSelected(2));
+      bloc.add(const BoardMapSelected(3));
       await mapSelected;
 
       bloc.add(const BoardCellSelected(0, 2));
