@@ -15,7 +15,7 @@ String _simbolo(Tipo tipo) {
 }
 
 void main() {
-  test('los tres mapas corresponden a las matrices indicadas', () {
+  test('los mapas corresponden a las matrices indicadas', () {
     const mapasEsperados = [
       [
         'PPPWGGG',
@@ -44,10 +44,19 @@ void main() {
         'YRBGBRY',
         'OOOOOOO',
       ],
+      [
+        'YGBPPPY',
+        'GGBBPPG',
+        'GRRBPGG',
+        'GRPYGGG',
+        'GRPPRRB',
+        'RRPRRBB',
+        'YPPRRBY',
+      ],
     ];
-    const mapas = [mapa1, mapa2, mapa3];
+    const mapas = [mapa1, mapa2, mapa3, mapaInicial];
 
-    expect(mapas, hasLength(3));
+    expect(mapas, hasLength(4));
     for (var mapaIndex = 0; mapaIndex < mapas.length; mapaIndex++) {
       final mapa = mapas[mapaIndex];
       expect(mapa.matriz, hasLength(7), reason: mapa.nombre);
