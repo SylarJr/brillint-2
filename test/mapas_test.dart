@@ -81,8 +81,10 @@ void main() {
     expect(estadoInicial.matriz, mapaInicial.matriz);
   });
 
-  test('el mapa 1 usa sus puntos iniciales sin cambiar los otros mapas', () {
+  test('cada mapa usa sus puntos iniciales', () {
     final estadoMapa1 = BoardState.inicial(mapaSeleccionado: 1);
+    final estadoMapa2 = BoardState.inicial(mapaSeleccionado: 2);
+    final estadoMapa3 = BoardState.inicial(mapaSeleccionado: 3);
 
     expect(estadoMapa1.matriz, mapa1.matriz);
     expect(estadoMapa1.casillasMarcadas, {
@@ -93,11 +95,23 @@ void main() {
       (5, 1),
       (6, 4),
     });
+    expect(estadoMapa2.casillasMarcadas, {
+      (1, 2),
+      (1, 5),
+      (3, 3),
+      (4, 1),
+      (4, 6),
+      (6, 2),
+    });
+    expect(estadoMapa3.casillasMarcadas, {
+      (0, 4),
+      (2, 2),
+      (2, 5),
+      (3, 0),
+      (5, 4),
+      (6, 1),
+    });
     expect(BoardState.inicial().casillasMarcadas, BoardState.casillasObjetivo);
-    expect(
-      BoardState.inicial(mapaSeleccionado: 2).casillasMarcadas,
-      BoardState.casillasObjetivo,
-    );
   });
 
   test('el tercer mapa separa las restricciones naranja por filas', () {
