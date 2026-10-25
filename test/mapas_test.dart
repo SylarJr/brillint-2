@@ -38,7 +38,7 @@ void main() {
       ],
       [
         'YYPWPYY',
-        'YYPPPYW',
+        'WYPPPYW',
         'RRRPRRR',
         'RRRWRRR',
         'GBBBBBG',

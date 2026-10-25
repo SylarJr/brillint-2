@@ -15,7 +15,7 @@ const mapa2 = MapaTablero(
       TipoAmarillo(),
     ],
     [
-      TipoAmarillo(),
+      TipoBlanco(),
       TipoAmarillo(),
       TipoMorado(),
       TipoMorado(),
