@@ -39,7 +39,7 @@ class TableroPage extends StatelessWidget {
                       const SizedBox(width: 11),
                       const Text(
                         'BRILLANT',
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: Color(0xFF183F38),
                           fontSize: 13,
                           fontWeight: FontWeight.w800,
@@ -48,43 +48,17 @@ class TableroPage extends StatelessWidget {
                       ),
                       const Spacer(),
                       BlocBuilder<BoardBloc, BoardState>(
-                        builder: (context, state) => Row(
-                          children: [
-                            const Text(
-                              '7 × 7',
-                              style: TextStyle(
-                                color: Color(0xFF61726C),
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            DropdownButton<int>(
-                              key: const ValueKey('selector-mapa'),
-                              value: state.mapaSeleccionado,
-                              onChanged: state.listoParaJugar
-                                  ? null
-                                  : (index) {
-                                      if (index != null) {
-                                        context.read<BoardBloc>().add(
-                                          BoardMapSelected(index),
-                                        );
-                                      }
-                                    },
-                              items: [
-                                for (
-                                  var index = 0;
-                                  index < BoardState.mapas.length;
-                                  index++
-                                )
-                                  DropdownMenuItem(
-                                    value: index,
-                                    child: Text(BoardState.mapas[index].nombre),
-                                  ),
-                              ],
-                            ),
-                          ],
-                        ),
+                        builder: (context, state) =>
+                            state.asignaciones.isEmpty && !state.listoParaJugar
+                            ? OutlinedButton.icon(
+                                key: const ValueKey('salir-mapa'),
+                                onPressed: () => context.read<BoardBloc>().add(
+                                  const BoardMapExited(),
+                                ),
+                                icon: const Icon(Icons.arrow_back_rounded),
+                                label: const Text('Salir del mapa'),
+                              )
+                            : const SizedBox.shrink(),
                       ),
                     ],
                   ),
@@ -211,8 +185,6 @@ class _ContenidoTablero extends StatelessWidget {
             );
           },
         ),
-        const SizedBox(height: 27),
-        const _Leyenda(),
       ],
     );
   }
@@ -823,54 +795,6 @@ class _PanelPuntuacion extends StatelessWidget {
           ),
         );
       },
-    );
-  }
-}
-
-class _Leyenda extends StatelessWidget {
-  const _Leyenda();
-
-  @override
-  Widget build(BuildContext context) {
-    const tipos = [
-      TipoAmarillo(),
-      TipoVerde(),
-      TipoAzul(),
-      TipoMorado(),
-      TipoRojo(),
-      TipoBlanco(),
-      TipoNaranjaSuperior(),
-      TipoNaranjaInferior(),
-    ];
-
-    return Wrap(
-      spacing: 16,
-      runSpacing: 12,
-      children: tipos.map((tipo) {
-        return Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 9,
-              height: 9,
-              decoration: BoxDecoration(
-                color: tipo.color,
-                borderRadius: BorderRadius.circular(3),
-              ),
-            ),
-            const SizedBox(width: 6),
-            Text(
-              _nombreTipo(tipo),
-              style: const TextStyle(
-                color: Color(0xFF52635D),
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.6,
-              ),
-            ),
-          ],
-        );
-      }).toList(),
     );
   }
 }

@@ -32,6 +32,16 @@ class BoardMapSelected extends BoardEvent {
   final int index;
 }
 
+class BoardMapStarted extends BoardEvent {
+  const BoardMapStarted(this.index);
+
+  final int index;
+}
+
+class BoardMapExited extends BoardEvent {
+  const BoardMapExited();
+}
+
 class RollDiceEvent extends BoardEvent {
   const RollDiceEvent();
 }
@@ -92,6 +102,7 @@ class BoardState {
     this.isDiceRolled = false,
     this.selectedDiceValue,
     this.mapaSeleccionado = 0,
+    this.mapaAbierto = false,
   });
 
   static const mapas = mapasTablero;
@@ -114,6 +125,7 @@ class BoardState {
   final bool isDiceRolled;
   final int? selectedDiceValue;
   final int mapaSeleccionado;
+  final bool mapaAbierto;
 
   List<BoardZone> get zonas => _crearZonas(matriz);
 
@@ -266,7 +278,10 @@ class BoardState {
     return tipo.puedeAgregarValor(valoresRegion, numero);
   }
 
-  factory BoardState.inicial({int mapaSeleccionado = 0}) => BoardState(
+  factory BoardState.inicial({
+    int mapaSeleccionado = 0,
+    bool mapaAbierto = false,
+  }) => BoardState(
     matriz: mapas[mapaSeleccionado].matriz,
     casillasMarcadas: mapas[mapaSeleccionado].puntosIniciales,
     asignaciones: const {},
@@ -277,6 +292,7 @@ class BoardState {
     dados: const [],
     validPositions: const {},
     isDiceRolled: false,
+    mapaAbierto: mapaAbierto,
   );
 
   static List<BoardZone> _crearZonas(List<List<Tipo>> matriz) {
@@ -375,6 +391,7 @@ class BoardState {
     bool? isDiceRolled,
     int? selectedDiceValue,
     int? mapaSeleccionado,
+    bool? mapaAbierto,
     bool clearTurn = false,
     bool clearSelection = false,
     bool clearMoveSource = false,
@@ -382,6 +399,7 @@ class BoardState {
   }) => BoardState(
     matriz: matriz,
     mapaSeleccionado: mapaSeleccionado ?? this.mapaSeleccionado,
+    mapaAbierto: mapaAbierto ?? this.mapaAbierto,
     casillasMarcadas: casillasMarcadas,
     asignaciones: asignaciones ?? this.asignaciones,
     casillaSeleccionada: clearSelection
@@ -445,6 +463,22 @@ class BoardBloc extends Bloc<BoardEvent, BoardState> {
         return;
       }
       emit(BoardState.inicial(mapaSeleccionado: event.index));
+    });
+
+    on<BoardMapStarted>((event, emit) {
+      if (event.index < 0 || event.index >= BoardState.mapas.length) return;
+      emit(
+        BoardState.inicial(mapaSeleccionado: event.index, mapaAbierto: true),
+      );
+    });
+
+    on<BoardMapExited>((event, emit) {
+      if (!state.mapaAbierto ||
+          state.asignaciones.isNotEmpty ||
+          state.listoParaJugar) {
+        return;
+      }
+      emit(state.copyWith(mapaAbierto: false, clearSelection: true));
     });
 
     on<BoardNumberAssigned>((event, emit) {

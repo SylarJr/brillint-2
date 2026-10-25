@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'tablero_bloc.dart';
+import 'mapa_selector_page.dart';
 import 'tablero_page.dart';
 
 void main() {
@@ -28,8 +29,20 @@ class MyApp extends StatelessWidget {
           scaffoldBackgroundColor: const Color(0xFFF4F7F3),
           fontFamily: 'Trebuchet MS',
         ),
-        home: const TableroPage(),
+        home: const PaginaPrincipal(),
       ),
+    );
+  }
+}
+
+class PaginaPrincipal extends StatelessWidget {
+  const PaginaPrincipal({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<BoardBloc, BoardState>(
+      builder: (context, state) =>
+          state.mapaAbierto ? const TableroPage() : const MapaSelectorPage(),
     );
   }
 }

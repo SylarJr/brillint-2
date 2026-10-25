@@ -92,27 +92,27 @@ void main() {
       bloc.add(const BoardMapSelected(3));
       await mapSelected;
 
-      bloc.add(const BoardCellSelected(0, 2));
+      bloc.add(const BoardCellSelected(0, 4));
       await bloc.stream.firstWhere(
-        (state) => state.casillaSeleccionada == (0, 2),
+        (state) => state.casillaSeleccionada == (0, 4),
       );
       bloc.add(const BoardNumberAssigned(3));
       await Future<void>.delayed(Duration.zero);
-      expect(bloc.state.numeroEn(0, 2), isNull);
+      expect(bloc.state.numeroEn(0, 4), isNull);
 
       final upperNumberAssigned = bloc.stream.firstWhere(
-        (state) => state.numeroEn(0, 2) == 4,
+        (state) => state.numeroEn(0, 4) == 4,
       );
       bloc.add(const BoardNumberAssigned(4));
       await upperNumberAssigned;
 
       final lowerCellSelected = bloc.stream.firstWhere(
-        (state) => state.casillaSeleccionada == (6, 4),
+        (state) => state.casillaSeleccionada == (6, 1),
       );
-      bloc.add(const BoardCellSelected(6, 4));
+      bloc.add(const BoardCellSelected(6, 1));
       await lowerCellSelected;
       final lowerNumberAssigned = bloc.stream.firstWhere(
-        (state) => state.numeroEn(6, 4) == 1,
+        (state) => state.numeroEn(6, 1) == 1,
       );
       bloc.add(const BoardNumberAssigned(1));
       await lowerNumberAssigned;

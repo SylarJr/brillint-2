@@ -12,20 +12,46 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_application_1/main.dart';
 import 'package:flutter_application_1/tablero_bloc.dart';
 
+Future<void> _entrarAlMapa(WidgetTester tester, {int mapa = 0}) async {
+  final tarjeta = find.byKey(ValueKey('mapa-card-$mapa'));
+  await tester.ensureVisible(tarjeta);
+  await tester.tap(tarjeta);
+  await tester.pumpAndSettle();
+}
+
 void main() {
   testWidgets('permite elegir uno de los mapas', (WidgetTester tester) async {
     await tester.pumpWidget(const MyApp());
 
-    await tester.tap(find.byKey(const ValueKey('selector-mapa')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Mapa 2').last);
-    await tester.pumpAndSettle();
+    expect(find.text('Selecciona un mapa'), findsOneWidget);
+    expect(find.byType(Image), findsNWidgets(4));
+    expect(find.text('Mapa inicial'), findsOneWidget);
+    expect(find.text('Mapa 1'), findsOneWidget);
+    expect(find.text('Mapa 2'), findsOneWidget);
+    expect(find.text('Mapa 3'), findsOneWidget);
+
+    await _entrarAlMapa(tester, mapa: 2);
 
     final bloc = tester
-        .element(find.byKey(const ValueKey('selector-mapa')))
+        .element(find.byKey(const ValueKey('salir-mapa')))
         .read<BoardBloc>();
     expect(bloc.state.mapaSeleccionado, 2);
+    expect(bloc.state.mapaAbierto, isTrue);
     expect(bloc.state.asignaciones, isEmpty);
+  });
+
+  testWidgets('permite salir al selector antes de colocar un número', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MyApp());
+    await _entrarAlMapa(tester, mapa: 1);
+
+    expect(find.byKey(const ValueKey('salir-mapa')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('salir-mapa')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Selecciona un mapa'), findsOneWidget);
+    expect(find.byType(Image), findsNWidgets(4));
   });
 
   testWidgets('muestra el panel de puntuación a la derecha en escritorio', (
@@ -37,6 +63,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     await tester.pumpWidget(const MyApp());
+    await _entrarAlMapa(tester);
 
     final tablero = tester.getRect(find.byType(AspectRatio).first);
     final dados = tester.getRect(find.byKey(const ValueKey('panel-dados')));
@@ -51,7 +78,9 @@ void main() {
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(const MyApp());
+    await _entrarAlMapa(tester);
 
+    expect(find.byKey(const ValueKey('salir-mapa')), findsOneWidget);
     expect(find.byKey(const ValueKey('panel-puntuacion')), findsOneWidget);
     expect(find.byKey(const ValueKey('panel-dados')), findsOneWidget);
     expect(find.byKey(const ValueKey('puntuacion-total')), findsOneWidget);
@@ -104,6 +133,10 @@ void main() {
       await tester.ensureVisible(find.byKey(ValueKey('numero-$numero')));
       await tester.tap(find.byKey(ValueKey('numero-$numero')));
       await tester.pumpAndSettle();
+
+      if (index == 0) {
+        expect(find.byKey(const ValueKey('salir-mapa')), findsNothing);
+      }
 
       if (index == 0) {
         final primeraCasilla = find.byKey(const ValueKey('celda-0-2'));
