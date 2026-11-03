@@ -9,8 +9,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:flutter_application_1/acceso_page.dart';
+import 'package:flutter_application_1/auth_service.dart';
 import 'package:flutter_application_1/main.dart';
 import 'package:flutter_application_1/tablero_bloc.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 Future<void> _abrirSeleccionMapas(WidgetTester tester) async {
   final accesoAMapas = find.byKey(const ValueKey('ir-a-mapas'));
@@ -45,6 +48,86 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Iniciar sesión'), findsNWidgets(2));
     expect(find.text('¿No tienes una cuenta? Crear cuenta'), findsOneWidget);
+  });
+
+  testWidgets('registro envía las credenciales y continúa al terminar', (
+    WidgetTester tester,
+  ) async {
+    final invoker = _FakeAuthFunctionInvoker();
+    var authenticated = false;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AccesoPage(
+          authService: AuthService(
+            invoker: invoker,
+            tokenStorage: _FakeSessionTokenStorage(),
+          ),
+          onOpenMaps: () {},
+          onAuthenticated: () => authenticated = true,
+        ),
+      ),
+    );
+
+    await tester.enterText(
+      find.byKey(const ValueKey('nombre-usuario')),
+      'Jugador_1',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('contrasena')),
+      'password123',
+    );
+    await tester.tap(find.byKey(const ValueKey('enviar-credenciales')));
+    await tester.pumpAndSettle();
+
+    expect(invoker.bodies.single, {
+      'action': 'register',
+      'usuario_name': 'Jugador_1',
+      'contrasena': 'password123',
+    });
+    expect(authenticated, isTrue);
+    expect(find.text('password123'), findsNothing);
+  });
+
+  testWidgets('inicio de sesión muestra el error del servidor', (
+    WidgetTester tester,
+  ) async {
+    final invoker = _FakeAuthFunctionInvoker()
+      ..error = const FunctionException(
+        status: 401,
+        details: {'error': 'Credenciales inválidas'},
+      );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AccesoPage(
+          authService: AuthService(
+            invoker: invoker,
+            tokenStorage: _FakeSessionTokenStorage(),
+          ),
+          onOpenMaps: () {},
+          onAuthenticated: () {},
+        ),
+      ),
+    );
+
+    final cambiarAInicio = find.text('¿Ya tienes una cuenta? Inicia sesión');
+    await tester.ensureVisible(cambiarAInicio);
+    await tester.tap(cambiarAInicio);
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('nombre-usuario')),
+      'Jugador_1',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('contrasena')),
+      'password123',
+    );
+    await tester.tap(find.byKey(const ValueKey('enviar-credenciales')));
+    await tester.pumpAndSettle();
+
+    expect(invoker.bodies.single['action'], 'login');
+    expect(find.text('Credenciales inválidas (HTTP 401)'), findsOneWidget);
   });
 
   testWidgets('permite elegir uno de los mapas', (WidgetTester tester) async {
@@ -242,4 +325,36 @@ void main() {
     await tester.pumpAndSettle();
     expect(bloc.state.isDiceRolled, isTrue);
   });
+}
+
+class _FakeAuthFunctionInvoker implements AuthFunctionInvoker {
+  final List<Map<String, Object?>> bodies = [];
+  Object? error;
+
+  @override
+  Future<AuthFunctionResponse> invoke(Map<String, Object?> body) async {
+    bodies.add(Map<String, Object?>.of(body));
+    if (error case final requestError?) {
+      throw requestError;
+    }
+    return const AuthFunctionResponse(
+      statusCode: 200,
+      data: {
+        'usuario_name': 'jugador_1',
+        'session_token': 'test-token',
+        'expires_at': '2030-01-01T00:00:00Z',
+      },
+    );
+  }
+}
+
+class _FakeSessionTokenStorage implements SessionTokenStorage {
+  @override
+  Future<void> delete() async {}
+
+  @override
+  Future<String?> read() async => null;
+
+  @override
+  Future<void> save(String token) async {}
 }

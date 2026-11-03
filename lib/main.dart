@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import 'auth_service.dart';
 import 'acceso_page.dart';
 import 'tablero_bloc.dart';
 import 'mapa_selector_page.dart';
 import 'tablero_page.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await initializeSupabase();
   runApp(const MyApp());
 }
 
@@ -52,7 +55,10 @@ class _PantallaInicialState extends State<PantallaInicial> {
       return const PaginaPrincipal();
     }
 
-    return AccesoPage(onOpenMaps: () => setState(() => _mostrarMapas = true));
+    return AccesoPage(
+      onOpenMaps: () => setState(() => _mostrarMapas = true),
+      onAuthenticated: () => setState(() => _mostrarMapas = true),
+    );
   }
 }
 

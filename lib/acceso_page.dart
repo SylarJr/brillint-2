@@ -1,16 +1,74 @@
 import 'package:flutter/material.dart';
 
+import 'auth_service.dart';
+
 class AccesoPage extends StatefulWidget {
-  const AccesoPage({super.key, required this.onOpenMaps});
+  const AccesoPage({
+    super.key,
+    required this.onOpenMaps,
+    required this.onAuthenticated,
+    this.authService,
+  });
 
   final VoidCallback onOpenMaps;
+  final VoidCallback onAuthenticated;
+  final AuthService? authService;
 
   @override
   State<AccesoPage> createState() => _AccesoPageState();
 }
 
 class _AccesoPageState extends State<AccesoPage> {
+  final _usuarioController = TextEditingController();
+  final _contrasenaController = TextEditingController();
   bool _esRegistro = true;
+  bool _enviando = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _usuarioController.dispose();
+    _contrasenaController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _enviarCredenciales() async {
+    if (_enviando) return;
+
+    setState(() {
+      _enviando = true;
+      _error = null;
+    });
+
+    try {
+      final authService = widget.authService ?? AuthService();
+      if (_esRegistro) {
+        await authService.register(
+          _usuarioController.text.trim(),
+          _contrasenaController.text,
+        );
+      } else {
+        await authService.login(
+          _usuarioController.text.trim(),
+          _contrasenaController.text,
+        );
+      }
+
+      if (!mounted) return;
+      _contrasenaController.clear();
+      widget.onAuthenticated();
+    } on AuthServiceException catch (error) {
+      if (!mounted) return;
+      setState(() => _error = error.toString());
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _error = 'No se pudo completar la solicitud: $error');
+    } finally {
+      if (mounted) {
+        setState(() => _enviando = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -24,7 +82,7 @@ class _AccesoPageState extends State<AccesoPage> {
                 padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
                 child: OutlinedButton.icon(
                   key: const ValueKey('ir-a-mapas'),
-                  onPressed: widget.onOpenMaps,
+                  onPressed: _enviando ? null : widget.onOpenMaps,
                   icon: const Icon(Icons.map_outlined),
                   label: const Text('Ir a selección de mapas'),
                 ),
@@ -89,8 +147,13 @@ class _AccesoPageState extends State<AccesoPage> {
                             ),
                             const SizedBox(height: 28),
                             TextField(
+                              key: const ValueKey('nombre-usuario'),
+                              controller: _usuarioController,
+                              textInputAction: TextInputAction.next,
+                              autocorrect: false,
                               decoration: InputDecoration(
                                 labelText: 'Nombre de usuario',
+                                helperText: '3 a 15 letras, números o guion bajo',
                                 prefixIcon: const Icon(Icons.person_outline),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
@@ -99,9 +162,16 @@ class _AccesoPageState extends State<AccesoPage> {
                             ),
                             const SizedBox(height: 16),
                             TextField(
+                              key: const ValueKey('contrasena'),
+                              controller: _contrasenaController,
                               obscureText: true,
+                              enableSuggestions: false,
+                              autocorrect: false,
+                              textInputAction: TextInputAction.done,
+                              onSubmitted: (_) => _enviarCredenciales(),
                               decoration: InputDecoration(
                                 labelText: 'Contraseña',
+                                helperText: 'Entre 8 y 72 bytes UTF-8',
                                 prefixIcon: const Icon(Icons.lock_outline),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
@@ -110,7 +180,10 @@ class _AccesoPageState extends State<AccesoPage> {
                             ),
                             const SizedBox(height: 24),
                             FilledButton(
-                              onPressed: () {},
+                              key: const ValueKey('enviar-credenciales'),
+                              onPressed: _enviando
+                                  ? null
+                                  : _enviarCredenciales,
                               style: FilledButton.styleFrom(
                                 backgroundColor: const Color(0xFF286B5C),
                                 padding: const EdgeInsets.symmetric(
@@ -120,14 +193,41 @@ class _AccesoPageState extends State<AccesoPage> {
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                               ),
-                              child: Text(
-                                _esRegistro ? 'Crear cuenta' : 'Iniciar sesión',
-                              ),
+                              child: _enviando
+                                  ? const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : Text(
+                                      _esRegistro
+                                          ? 'Crear cuenta'
+                                          : 'Iniciar sesión',
+                                    ),
                             ),
+                            if (_error != null) ...[
+                              const SizedBox(height: 12),
+                              Text(
+                                _error!,
+                                key: const ValueKey('error-autenticacion'),
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.error,
+                                ),
+                              ),
+                            ],
                             const SizedBox(height: 12),
                             TextButton(
-                              onPressed: () =>
-                                  setState(() => _esRegistro = !_esRegistro),
+                              onPressed: _enviando
+                                  ? null
+                                  : () => setState(() {
+                                      _esRegistro = !_esRegistro;
+                                      _error = null;
+                                      _contrasenaController.clear();
+                                    }),
                               child: Text(
                                 _esRegistro
                                     ? '¿Ya tienes una cuenta? Inicia sesión'
