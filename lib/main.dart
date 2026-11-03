@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import 'acceso_page.dart';
 import 'tablero_bloc.dart';
 import 'mapa_selector_page.dart';
 import 'tablero_page.dart';
@@ -29,9 +30,29 @@ class MyApp extends StatelessWidget {
           scaffoldBackgroundColor: const Color(0xFFF4F7F3),
           fontFamily: 'Trebuchet MS',
         ),
-        home: const PaginaPrincipal(),
+        home: const PantallaInicial(),
       ),
     );
+  }
+}
+
+class PantallaInicial extends StatefulWidget {
+  const PantallaInicial({super.key});
+
+  @override
+  State<PantallaInicial> createState() => _PantallaInicialState();
+}
+
+class _PantallaInicialState extends State<PantallaInicial> {
+  bool _mostrarMapas = false;
+
+  @override
+  Widget build(BuildContext context) {
+    if (_mostrarMapas) {
+      return const PaginaPrincipal();
+    }
+
+    return AccesoPage(onOpenMaps: () => setState(() => _mostrarMapas = true));
   }
 }
 

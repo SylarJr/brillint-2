@@ -12,7 +12,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_application_1/main.dart';
 import 'package:flutter_application_1/tablero_bloc.dart';
 
+Future<void> _abrirSeleccionMapas(WidgetTester tester) async {
+  final accesoAMapas = find.byKey(const ValueKey('ir-a-mapas'));
+  if (accesoAMapas.evaluate().isNotEmpty) {
+    await tester.tap(accesoAMapas);
+    await tester.pumpAndSettle();
+  }
+}
+
 Future<void> _entrarAlMapa(WidgetTester tester, {int mapa = 0}) async {
+  await _abrirSeleccionMapas(tester);
   final tarjeta = find.byKey(ValueKey('mapa-card-$mapa'));
   await tester.ensureVisible(tarjeta);
   await tester.tap(tarjeta);
@@ -20,8 +29,27 @@ Future<void> _entrarAlMapa(WidgetTester tester, {int mapa = 0}) async {
 }
 
 void main() {
+  testWidgets('muestra registro e inicio de sesión sin guardar datos', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MyApp());
+
+    expect(find.text('Crear una cuenta'), findsOneWidget);
+    expect(find.text('Nombre de usuario'), findsOneWidget);
+    expect(find.text('Contraseña'), findsOneWidget);
+    expect(find.byKey(const ValueKey('ir-a-mapas')), findsOneWidget);
+
+    final cambiarAInicio = find.text('¿Ya tienes una cuenta? Inicia sesión');
+    await tester.ensureVisible(cambiarAInicio);
+    await tester.tap(cambiarAInicio);
+    await tester.pumpAndSettle();
+    expect(find.text('Iniciar sesión'), findsNWidgets(2));
+    expect(find.text('¿No tienes una cuenta? Crear cuenta'), findsOneWidget);
+  });
+
   testWidgets('permite elegir uno de los mapas', (WidgetTester tester) async {
     await tester.pumpWidget(const MyApp());
+    await _abrirSeleccionMapas(tester);
 
     expect(find.text('Selecciona un mapa'), findsOneWidget);
     expect(find.byType(Image), findsNWidgets(4));
