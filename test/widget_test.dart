@@ -16,11 +16,13 @@ import 'package:flutter_application_1/tablero_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 Future<void> _abrirSeleccionMapas(WidgetTester tester) async {
-  final accesoAMapas = find.byKey(const ValueKey('ir-a-mapas'));
-  if (accesoAMapas.evaluate().isNotEmpty) {
-    await tester.tap(accesoAMapas);
-    await tester.pumpAndSettle();
-  }
+  await tester.pumpWidget(
+    BlocProvider(
+      create: (_) => BoardBloc(),
+      child: const MaterialApp(home: PaginaPrincipal()),
+    ),
+  );
+  await tester.pumpAndSettle();
 }
 
 Future<void> _entrarAlMapa(WidgetTester tester, {int mapa = 0}) async {
@@ -40,7 +42,7 @@ void main() {
     expect(find.text('Crear una cuenta'), findsOneWidget);
     expect(find.text('Nombre de usuario'), findsOneWidget);
     expect(find.text('Contraseña'), findsOneWidget);
-    expect(find.byKey(const ValueKey('ir-a-mapas')), findsOneWidget);
+    expect(find.text('Ir a selección de mapas'), findsNothing);
 
     final cambiarAInicio = find.text('¿Ya tienes una cuenta? Inicia sesión');
     await tester.ensureVisible(cambiarAInicio);
