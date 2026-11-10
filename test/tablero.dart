@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import '../lib/tablero.dart';
+import 'package:flutter_application_1/tablero.dart';
 
 void printBoardTestResult(String testName, BrilliantBoard board) {
   print('\n=== $testName ===');

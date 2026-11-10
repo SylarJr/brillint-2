@@ -76,18 +76,6 @@ class _AccesoPageState extends State<AccesoPage> {
       body: SafeArea(
         child: Column(
           children: [
-            Align(
-              alignment: Alignment.centerRight,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-                child: OutlinedButton.icon(
-                  key: const ValueKey('ir-a-mapas'),
-                  onPressed: _enviando ? null : widget.onOpenMaps,
-                  icon: const Icon(Icons.map_outlined),
-                  label: const Text('Ir a selección de mapas'),
-                ),
-              ),
-            ),
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(24),
