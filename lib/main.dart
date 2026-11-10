@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:provider/provider.dart';
 
 import 'auth_service.dart';
 import 'acceso_page.dart';
+import 'lobby_page.dart';
 import 'tablero_bloc.dart';
 import 'mapa_selector_page.dart';
 import 'tablero_page.dart';
+import 'multiplayer_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -14,26 +17,33 @@ Future<void> main() async {
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  const MyApp({super.key, this.multiplayer});
+
+  static final _defaultMultiplayer = MultiplayerService();
+  final MultiplayerService? multiplayer;
 
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => BoardBloc(),
-      child: MaterialApp(
-        title: 'Brillant',
-        debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          useMaterial3: true,
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFF286B5C),
-            surface: const Color(0xFFF4F7F3),
+    final service = multiplayer ?? _defaultMultiplayer;
+    return ChangeNotifierProvider<MultiplayerService>.value(
+      value: service,
+      child: BlocProvider(
+        create: (_) => BoardBloc(multiplayer: service),
+        child: MaterialApp(
+          title: 'Brillant',
+          debugShowCheckedModeBanner: false,
+          theme: ThemeData(
+            useMaterial3: true,
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: const Color(0xFF286B5C),
+              surface: const Color(0xFFF4F7F3),
+            ),
+            scaffoldBackgroundColor: const Color(0xFFF4F7F3),
+            fontFamily: 'Trebuchet MS',
           ),
-          scaffoldBackgroundColor: const Color(0xFFF4F7F3),
-          fontFamily: 'Trebuchet MS',
+          home: const PantallaInicial(),
         ),
-        home: const PantallaInicial(),
       ),
     );
   }
@@ -67,9 +77,28 @@ class PaginaPrincipal extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<BoardBloc, BoardState>(
-      builder: (context, state) =>
-          state.mapaAbierto ? const TableroPage() : const MapaSelectorPage(),
+    final multiplayer = context.read<MultiplayerService>();
+    return AnimatedBuilder(
+      animation: multiplayer,
+      builder: (context, _) {
+        if (multiplayer.gameStarted) return const TableroPage();
+        if (multiplayer.roomCode != null) {
+          return LobbyPage(
+            multiplayer: multiplayer,
+            onLeave: () async {
+              try {
+                await multiplayer.leaveRoom();
+                if (context.mounted) {
+                  context.read<BoardBloc>().add(const BoardMapExited());
+                }
+              } catch (_) {
+                // The lobby displays the connection error from the service.
+              }
+            },
+          );
+        }
+        return const MapaSelectorPage();
+      },
     );
   }
 }

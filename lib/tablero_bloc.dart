@@ -1,8 +1,10 @@
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'mapas.dart';
+import 'multiplayer_service.dart';
 import 'tipo.dart';
 
 sealed class BoardEvent {
@@ -22,10 +24,6 @@ class BoardNumberAssigned extends BoardEvent {
   final int numero;
 }
 
-class BoardReadyPressed extends BoardEvent {
-  const BoardReadyPressed();
-}
-
 class BoardMapSelected extends BoardEvent {
   const BoardMapSelected(this.index);
 
@@ -40,10 +38,6 @@ class BoardMapStarted extends BoardEvent {
 
 class BoardMapExited extends BoardEvent {
   const BoardMapExited();
-}
-
-class RollDiceEvent extends BoardEvent {
-  const RollDiceEvent();
 }
 
 class PlaceNumberEvent extends BoardEvent {
@@ -64,30 +58,6 @@ class SelectDiceValueEvent extends BoardEvent {
   final int number;
 }
 
-class BoardZone {
-  const BoardZone({
-    required this.id,
-    required this.tipo,
-    required this.casillas,
-  });
-
-  final (int, int) id;
-  final Tipo tipo;
-  final Set<(int, int)> casillas;
-}
-
-class BoardZoneScore {
-  const BoardZoneScore({
-    required this.zona,
-    required this.puesto,
-    required this.puntos,
-  });
-
-  final BoardZone zona;
-  final int puesto;
-  final int puntos;
-}
-
 class BoardState {
   BoardState({
     required this.matriz,
@@ -95,7 +65,6 @@ class BoardState {
     required this.asignaciones,
     required this.casillaSeleccionada,
     required this.listoParaJugar,
-    this.zonasCompletadas = const [],
     this.casillaOrigenMovimiento,
     this.dados = const [],
     this.validPositions = const {},
@@ -118,7 +87,6 @@ class BoardState {
   final Map<(int, int), int> asignaciones;
   final (int, int)? casillaSeleccionada;
   final bool listoParaJugar;
-  final List<(int, int)> zonasCompletadas;
   final (int, int)? casillaOrigenMovimiento;
   final List<int> dados;
   final Set<Point<int>> validPositions;
@@ -127,8 +95,6 @@ class BoardState {
   final int mapaSeleccionado;
   final bool mapaAbierto;
 
-  List<BoardZone> get zonas => _crearZonas(matriz);
-
   List<int> get dice => dados;
 
   List<int> get numerosDisponibles => numerosPermitidos
@@ -136,31 +102,6 @@ class BoardState {
       .toList(growable: false);
 
   bool get completo => asignaciones.length == casillasMarcadas.length;
-
-  List<BoardZoneScore> get historialPuntuacion {
-    final puestosPorZona = <(int, int), int>{};
-    final historial = <BoardZoneScore>[];
-
-    for (final id in zonasCompletadas) {
-      final zona = _zonaPorId(id);
-      if (zona == null) continue;
-
-      final puesto = (puestosPorZona[id] ?? 0) + 1;
-      puestosPorZona[id] = puesto;
-      historial.add(
-        BoardZoneScore(
-          zona: zona,
-          puesto: puesto,
-          puntos: zona.tipo.puntuaciones[puesto] ?? 0,
-        ),
-      );
-    }
-
-    return List.unmodifiable(historial);
-  }
-
-  int get puntuacionTotal =>
-      historialPuntuacion.fold(0, (total, entrada) => total + entrada.puntos);
 
   bool esCasillaMarcada(int fila, int columna) =>
       casillasMarcadas.contains((fila, columna));
@@ -295,104 +236,17 @@ class BoardState {
     mapaAbierto: mapaAbierto,
   );
 
-  static List<BoardZone> _crearZonas(List<List<Tipo>> matriz) {
-    final zonas = <BoardZone>[];
-    final visitadas = <(int, int)>{};
-
-    for (var fila = 0; fila < matriz.length; fila++) {
-      for (var columna = 0; columna < matriz[fila].length; columna++) {
-        final inicio = (fila, columna);
-        if (visitadas.contains(inicio)) continue;
-
-        final tipo = matriz[fila][columna];
-        if (tipo is TipoAmarillo || tipo is TipoBlanco) {
-          final casillasGlobales = <(int, int)>{
-            for (var filaGlobal = 0; filaGlobal < matriz.length; filaGlobal++)
-              for (
-                var columnaGlobal = 0;
-                columnaGlobal < matriz[filaGlobal].length;
-                columnaGlobal++
-              )
-                if (matriz[filaGlobal][columnaGlobal].runtimeType ==
-                    tipo.runtimeType)
-                  (filaGlobal, columnaGlobal),
-          };
-          visitadas.addAll(casillasGlobales);
-          final id = tipo is TipoAmarillo ? (-1, -1) : (-2, -2);
-          zonas.add(
-            BoardZone(
-              id: id,
-              tipo: tipo,
-              casillas: Set.unmodifiable(casillasGlobales),
-            ),
-          );
-          continue;
-        }
-
-        final pendientes = <(int, int)>[inicio];
-        final casillas = <(int, int)>{};
-
-        while (pendientes.isNotEmpty) {
-          final actual = pendientes.removeLast();
-          if (visitadas.contains(actual)) continue;
-          final (actualFila, actualColumna) = actual;
-          if (matriz[actualFila][actualColumna].runtimeType !=
-              tipo.runtimeType) {
-            continue;
-          }
-
-          visitadas.add(actual);
-          casillas.add(actual);
-          pendientes.addAll(
-            [
-              (actualFila - 1, actualColumna),
-              (actualFila + 1, actualColumna),
-              (actualFila, actualColumna - 1),
-              (actualFila, actualColumna + 1),
-            ].where(
-              (posicion) =>
-                  posicion.$1 >= 0 &&
-                  posicion.$1 < matriz.length &&
-                  posicion.$2 >= 0 &&
-                  posicion.$2 < matriz[posicion.$1].length &&
-                  !visitadas.contains(posicion),
-            ),
-          );
-        }
-
-        zonas.add(
-          BoardZone(
-            id: inicio,
-            tipo: tipo,
-            casillas: Set.unmodifiable(casillas),
-          ),
-        );
-      }
-    }
-
-    return List.unmodifiable(zonas);
-  }
-
-  BoardZone? _zonaPorId((int, int) id) {
-    for (final zona in zonas) {
-      if (zona.id == id) return zona;
-    }
-    return null;
-  }
-
   BoardState copyWith({
     Map<(int, int), int>? asignaciones,
     (int, int)? casillaSeleccionada,
     (int, int)? casillaOrigenMovimiento,
     bool? listoParaJugar,
-    List<(int, int)>? zonasCompletadas,
     List<int>? dados,
     Set<Point<int>>? validPositions,
     bool? isDiceRolled,
     int? selectedDiceValue,
     int? mapaSeleccionado,
     bool? mapaAbierto,
-    bool clearTurn = false,
     bool clearSelection = false,
     bool clearMoveSource = false,
     bool clearSelectedDiceValue = false,
@@ -406,24 +260,23 @@ class BoardState {
         ? null
         : casillaSeleccionada ?? this.casillaSeleccionada,
     listoParaJugar: listoParaJugar ?? this.listoParaJugar,
-    zonasCompletadas: zonasCompletadas ?? this.zonasCompletadas,
     casillaOrigenMovimiento: clearMoveSource
         ? null
         : casillaOrigenMovimiento ?? this.casillaOrigenMovimiento,
-    dados: clearTurn ? const [] : dados ?? this.dados,
-    validPositions: clearTurn
-        ? const {}
-        : validPositions ?? this.validPositions,
-    isDiceRolled: clearTurn ? false : isDiceRolled ?? this.isDiceRolled,
-    selectedDiceValue: clearTurn || clearSelectedDiceValue
+    dados: dados ?? this.dados,
+    validPositions: validPositions ?? this.validPositions,
+    isDiceRolled: isDiceRolled ?? this.isDiceRolled,
+    selectedDiceValue: clearSelectedDiceValue
         ? null
         : selectedDiceValue ?? this.selectedDiceValue,
   );
 }
 
 class BoardBloc extends Bloc<BoardEvent, BoardState> {
-  BoardBloc({Random? random})
-    : _random = random ?? Random(),
+  BoardBloc({MultiplayerService? multiplayer})
+    : _multiplayer = multiplayer,
+      _lastServerAssignments = multiplayer?.assignments ?? const {},
+      _lastServerDice = multiplayer?.dice ?? const [],
       super(BoardState.inicial()) {
     on<BoardCellSelected>((event, emit) {
       if (event.fila < 0 ||
@@ -579,21 +432,6 @@ class BoardBloc extends Bloc<BoardEvent, BoardState> {
       _startGameIfSetupComplete(emit);
     });
 
-    on<BoardReadyPressed>((event, emit) {
-      if (!state.completo || state.listoParaJugar) return;
-      emit(state.copyWith(listoParaJugar: true, clearSelection: true));
-    });
-
-    on<RollDiceEvent>((event, emit) {
-      if (!state.listoParaJugar || state.isDiceRolled) return;
-      final conDados = state.copyWith(
-        dados: [1 + _random.nextInt(6), 1 + _random.nextInt(6)],
-        isDiceRolled: true,
-        clearSelectedDiceValue: true,
-      );
-      emit(conDados.copyWith(validPositions: const {}));
-    });
-
     on<SelectDiceValueEvent>((event, emit) {
       if (!state.isDiceRolled || !state.dados.contains(event.number)) return;
       emit(
@@ -614,70 +452,79 @@ class BoardBloc extends Bloc<BoardEvent, BoardState> {
         return;
       }
 
-      emit(
-        state.copyWith(
-          asignaciones: Map.unmodifiable({
-            ...state.asignaciones,
-            (event.row, event.col): event.number,
-          }),
-          zonasCompletadas: _registrarZonasCompletadas(state.asignaciones, (
-            event.row,
-            event.col,
-          )),
-          clearTurn: true,
-        ),
-      );
-      await Future<void>.delayed(const Duration(seconds: 2));
-      if (!isClosed && state.listoParaJugar && !state.isDiceRolled) {
-        add(const RollDiceEvent());
+      try {
+        await _multiplayer?.placeNumber(event.row, event.col, event.number);
+      } catch (_) {
+        // The service exposes the server error to the player.
       }
     });
 
     on<SkipTurnEvent>((event, emit) async {
       if (!state.listoParaJugar || !state.isDiceRolled) return;
-      emit(state.copyWith(clearTurn: true));
-      await Future<void>.delayed(const Duration(seconds: 2));
-      if (!isClosed && state.listoParaJugar && !state.isDiceRolled) {
-        add(const RollDiceEvent());
+      try {
+        await _multiplayer?.skipTurn();
+      } catch (_) {
+        // The service exposes the server error to the player.
       }
     });
+
+    on<_ServerBoardUpdated>((event, emit) {
+      emit(
+        state.copyWith(
+          asignaciones: Map.unmodifiable(event.assignments),
+          dados: event.dice,
+          isDiceRolled: event.dice.isNotEmpty,
+          validPositions: const {},
+          clearSelectedDiceValue: true,
+        ),
+      );
+    });
+
+    if (_multiplayer != null) {
+      _multiplayer.addListener(_onMultiplayerChanged);
+    }
   }
 
   void _startGameIfSetupComplete(Emitter<BoardState> emit) {
     if (!state.completo || state.listoParaJugar) return;
-    emit(
-      state.copyWith(
-        listoParaJugar: true,
-        zonasCompletadas: _zonasCompletasEn(state.asignaciones),
-        clearSelection: true,
-      ),
-    );
-    add(const RollDiceEvent());
+    emit(state.copyWith(listoParaJugar: true, clearSelection: true));
+    _submitInitialBoard(state.asignaciones);
   }
 
-  List<(int, int)> _registrarZonasCompletadas(
-    Map<(int, int), int> asignaciones,
-    (int, int) posicionAgregada,
-  ) {
-    final nuevasAsignaciones = {...asignaciones, posicionAgregada: 0};
-    final completadas = List<(int, int)>.of(state.zonasCompletadas);
-
-    for (final zona in state.zonas) {
-      if (zona.casillas.contains(posicionAgregada) &&
-          !completadas.contains(zona.id) &&
-          zona.casillas.every(nuevasAsignaciones.containsKey)) {
-        completadas.add(zona.id);
-      }
+  Future<void> _submitInitialBoard(Map<(int, int), int> assignments) async {
+    try {
+      await _multiplayer?.submitInitialBoard(assignments);
+    } catch (_) {
+      // The service exposes the server error to the player.
     }
-
-    return List.unmodifiable(completadas);
   }
 
-  List<(int, int)> _zonasCompletasEn(Map<(int, int), int> asignaciones) =>
-      List.unmodifiable([
-        for (final zona in state.zonas)
-          if (zona.casillas.every(asignaciones.containsKey)) zona.id,
-      ]);
+  void _onMultiplayerChanged() {
+    if (_multiplayer == null || isClosed) return;
+    if (!_multiplayer.gameStarted) return;
+    if (mapEquals(_lastServerAssignments, _multiplayer.assignments) &&
+        listEquals(_lastServerDice, _multiplayer.dice)) {
+      return;
+    }
+    _lastServerAssignments = Map.unmodifiable(_multiplayer.assignments);
+    _lastServerDice = List.unmodifiable(_multiplayer.dice);
+    add(_ServerBoardUpdated(_multiplayer.assignments, _multiplayer.dice));
+  }
 
-  final Random _random;
+  final MultiplayerService? _multiplayer;
+  Map<(int, int), int> _lastServerAssignments;
+  List<int> _lastServerDice;
+
+  @override
+  Future<void> close() {
+    _multiplayer?.removeListener(_onMultiplayerChanged);
+    return super.close();
+  }
+}
+
+class _ServerBoardUpdated extends BoardEvent {
+  const _ServerBoardUpdated(this.assignments, this.dice);
+
+  final Map<(int, int), int> assignments;
+  final List<int> dice;
 }

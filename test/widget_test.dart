@@ -12,6 +12,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_application_1/acceso_page.dart';
 import 'package:flutter_application_1/auth_service.dart';
 import 'package:flutter_application_1/main.dart';
+import 'package:flutter_application_1/multiplayer_service.dart';
 import 'package:flutter_application_1/tablero_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -130,11 +131,14 @@ void main() {
     expect(find.text('Credenciales inválidas (HTTP 401)'), findsOneWidget);
   });
 
-  testWidgets('permite elegir uno de los mapas', (WidgetTester tester) async {
-    await tester.pumpWidget(const MyApp());
+  testWidgets('elegir un mapa crea una sala y muestra el lobby', (
+    WidgetTester tester,
+  ) async {
+    final service = _FakeMultiplayerService();
+    await tester.pumpWidget(MyApp(multiplayer: service));
     await _abrirSeleccionMapas(tester);
 
-    expect(find.text('Selecciona un mapa'), findsOneWidget);
+    expect(find.text('Juega con otras personas'), findsOneWidget);
     expect(find.byType(Image), findsNWidgets(4));
     expect(find.text('Mapa inicial'), findsOneWidget);
     expect(find.text('Mapa 1'), findsOneWidget);
@@ -144,25 +148,36 @@ void main() {
     await _entrarAlMapa(tester, mapa: 2);
 
     final bloc = tester
-        .element(find.byKey(const ValueKey('salir-mapa')))
+        .element(find.byKey(const ValueKey('codigo-invitacion')))
         .read<BoardBloc>();
     expect(bloc.state.mapaSeleccionado, 2);
     expect(bloc.state.mapaAbierto, isTrue);
     expect(bloc.state.asignaciones, isEmpty);
+    expect(find.text('Lobby'), findsOneWidget);
+    expect(find.text('Q7M4PX'), findsOneWidget);
+    expect(find.textContaining('al menos dos jugadores'), findsOneWidget);
+    expect(find.byKey(const ValueKey('salir-mapa')), findsNothing);
   });
 
-  testWidgets('permite salir al selector antes de colocar un número', (
+  testWidgets('el lobby comunica listo al servidor', (
     WidgetTester tester,
   ) async {
-    await tester.pumpWidget(const MyApp());
+    final service = _FakeMultiplayerService();
+    await tester.pumpWidget(MyApp(multiplayer: service));
     await _entrarAlMapa(tester, mapa: 1);
+    expect(find.text('Lobby'), findsOneWidget);
 
-    expect(find.byKey(const ValueKey('salir-mapa')), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('salir-mapa')));
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('boton-listo')),
+      250,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.tap(find.byKey(const ValueKey('boton-listo')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Selecciona un mapa'), findsOneWidget);
-    expect(find.byType(Image), findsNWidgets(4));
+    expect(service.readyRequested, isTrue);
+    expect(find.text('Ya no estoy listo'), findsOneWidget);
+    expect(find.text('Lobby'), findsOneWidget);
   });
 
   testWidgets('muestra el panel de puntuación a la derecha en escritorio', (
@@ -173,8 +188,11 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(const MyApp());
+    final service = _FakeMultiplayerService();
+    await tester.pumpWidget(MyApp(multiplayer: service));
     await _entrarAlMapa(tester);
+    service.startGame();
+    await tester.pumpAndSettle();
 
     final tablero = tester.getRect(find.byType(AspectRatio).first);
     final dados = tester.getRect(find.byKey(const ValueKey('panel-dados')));
@@ -185,146 +203,118 @@ void main() {
     expect(puntuacion.left, greaterThan(tablero.right));
   });
 
-  testWidgets('asigna los seis números una vez y muestra Listo para jugar', (
+  testWidgets('los dados y puntuaciones visibles provienen del servidor', (
     WidgetTester tester,
   ) async {
-    await tester.pumpWidget(const MyApp());
+    final service = _FakeMultiplayerService();
+    await tester.pumpWidget(MyApp(multiplayer: service));
     await _entrarAlMapa(tester);
+    service.startGame();
+    await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('salir-mapa')), findsOneWidget);
     expect(find.byKey(const ValueKey('panel-puntuacion')), findsOneWidget);
     expect(find.byKey(const ValueKey('panel-dados')), findsOneWidget);
-    expect(find.byKey(const ValueKey('puntuacion-total')), findsOneWidget);
     expect(find.byKey(const ValueKey('marcador-pendiente')), findsNWidgets(6));
-    expect(find.text('0'), findsOneWidget);
     expect(find.byKey(const ValueKey('celda-0-0')), findsOneWidget);
     expect(find.byKey(const ValueKey('celda-6-6')), findsOneWidget);
     expect(find.text('FILA 1  /  COLUMNA 3'), findsNothing);
 
-    const objetivos = <(int, int)>[
-      (0, 2),
-      (1, 5),
-      (3, 1),
-      (3, 4),
-      (5, 2),
-      (6, 4),
-    ];
-
-    for (var index = 0; index < objetivos.length; index++) {
-      final (fila, columna) = objetivos[index];
-      final celda = find.byKey(ValueKey('celda-$fila-$columna'));
-      await tester.ensureVisible(celda);
-      await tester.tap(celda);
-      await tester.pumpAndSettle();
-
-      expect(
-        find.text('FILA ${fila + 1}  /  COLUMNA ${columna + 1}'),
-        findsOneWidget,
-      );
-
-      if (index == 1) {
-        final botonUno = tester.widget<OutlinedButton>(
-          find.byKey(const ValueKey('numero-1')),
-        );
-        expect(botonUno.onPressed, isNotNull);
-        expect(
-          botonUno.style?.backgroundColor?.resolve({}),
-          const Color(0xFFDBEAFE),
-        );
-        final numeroInicial = tester.widget<Text>(
-          find.descendant(
-            of: find.byKey(const ValueKey('celda-0-2')),
-            matching: find.text('1'),
-          ),
-        );
-        expect(numeroInicial.style!.color, const Color(0xFF2563EB));
-      }
-
-      final numero = index + 1;
-      await tester.ensureVisible(find.byKey(ValueKey('numero-$numero')));
-      await tester.tap(find.byKey(ValueKey('numero-$numero')));
-      await tester.pumpAndSettle();
-
-      if (index == 0) {
-        expect(find.byKey(const ValueKey('salir-mapa')), findsNothing);
-      }
-
-      if (index == 0) {
-        final primeraCasilla = find.byKey(const ValueKey('celda-0-2'));
-        await tester.ensureVisible(primeraCasilla);
-        await tester.tap(primeraCasilla);
-        await tester.pumpAndSettle();
-        expect(find.byKey(const ValueKey('numero-2')), findsNothing);
-        expect(
-          find.descendant(of: primeraCasilla, matching: find.text('1')),
-          findsOneWidget,
-        );
-        await tester.tap(primeraCasilla);
-        await tester.pumpAndSettle();
-      }
-    }
-
     final bloc = tester
         .element(find.byKey(const ValueKey('celda-0-0')))
         .read<BoardBloc>();
-    expect(bloc.state.asignaciones.values.toSet(), {1, 2, 3, 4, 5, 6});
-    expect(bloc.state.completo, isTrue);
-    expect(bloc.state.listoParaJugar, isTrue);
+    expect(bloc.state.dados, isEmpty);
+    expect(find.text('Prepara el tablero para empezar.'), findsOneWidget);
 
-    expect(find.text('Listo para jugar'), findsOneWidget);
-    expect(find.text('6 DE 6 NÚMEROS COLOCADOS'), findsNothing);
+    service
+      ..scores = const [
+        PlayerScore(playerId: 'player-1', playerName: 'Ana', total: 15),
+      ]
+      ..dice = const [2, 5]
+      ..notifyListeners();
     await tester.pumpAndSettle();
 
     expect(bloc.state.isDiceRolled, isTrue);
+    expect(bloc.state.dados, [2, 5]);
     expect(find.byKey(const ValueKey('dado-0')), findsOneWidget);
     expect(find.byKey(const ValueKey('dado-1')), findsOneWidget);
+    expect(find.text('Ana'), findsOneWidget);
+    expect(find.text('15'), findsOneWidget);
     expect(find.byType(AnimatedSwitcher), findsNWidgets(2));
-    expect(find.byKey(const ValueKey('boton-tirar-dados')), findsNothing);
-    expect(
-      tester
-          .widget<OutlinedButton>(
-            find.byKey(const ValueKey('boton-pasar-turno')),
-          )
-          .onPressed,
-      isNotNull,
-    );
-
-    expect(bloc.state.validPositions, isEmpty);
-    final primeraCasillaDeJuego = find.byKey(const ValueKey('celda-0-1'));
-    await tester.ensureVisible(primeraCasillaDeJuego);
-    await tester.tap(primeraCasillaDeJuego);
-    await tester.pumpAndSettle();
-    expect(bloc.state.numeroEn(0, 1), isNull);
-
-    for (var index = 0; index < bloc.state.dados.length; index++) {
-      if (bloc.state.validPositions.isNotEmpty) break;
-      final dado = find.byKey(ValueKey('dado-$index'));
-      await tester.ensureVisible(dado);
-      await tester.tap(dado);
-      await tester.pumpAndSettle();
-    }
-
-    if (bloc.state.validPositions.isEmpty) {
-      final botonPasarTurno = find.byKey(const ValueKey('boton-pasar-turno'));
-      await tester.ensureVisible(botonPasarTurno);
-      await tester.tap(botonPasarTurno);
-    } else {
-      final position = bloc.state.validPositions.first;
-      final cell = find.byKey(ValueKey('celda-${position.x}-${position.y}'));
-      final tile = tester.widget<AnimatedContainer>(
-        find.ancestor(of: cell, matching: find.byType(AnimatedContainer)).first,
-      );
-      final decoration = tile.decoration! as BoxDecoration;
-      expect(decoration.boxShadow!.first.color, const Color(0xAA00D863));
-      await tester.ensureVisible(cell);
-      await tester.tap(cell);
-    }
-    await tester.pump();
-    expect(bloc.state.isDiceRolled, isFalse);
-    await tester.pump(const Duration(seconds: 2));
-    await tester.pumpAndSettle();
-    expect(bloc.state.isDiceRolled, isTrue);
+    expect(find.byKey(const ValueKey('puntuacion-total')), findsNothing);
   });
+}
+
+class _FakeMultiplayerService extends MultiplayerService {
+  _FakeMultiplayerService() : super(serverUrl: 'ws://unused');
+
+  bool? readyRequested;
+
+  @override
+  Future<void> createRoom({
+    required int mapId,
+    required String playerName,
+  }) async {
+    roomCode = 'Q7M4PX';
+    playerId = 'player-1';
+    this.mapId = mapId;
+    players = [
+      RoomPlayer(id: playerId!, name: playerName, ready: false),
+      const RoomPlayer(id: 'player-2', name: 'Invitado', ready: false),
+    ];
+    notifyListeners();
+  }
+
+  @override
+  Future<void> joinRoom({
+    required String code,
+    required String playerName,
+  }) async {
+    roomCode = code.toUpperCase();
+    playerId = 'player-2';
+    mapId = 0;
+    notifyListeners();
+  }
+
+  @override
+  Future<void> setReady(bool ready) async {
+    readyRequested = ready;
+    players = [
+      for (final player in players)
+        if (player.id == playerId)
+          RoomPlayer(id: player.id, name: player.name, ready: ready)
+        else
+          player,
+    ];
+    notifyListeners();
+  }
+
+  void startGame() {
+    gameStarted = true;
+    notifyListeners();
+  }
+
+  @override
+  Future<void> submitInitialBoard(
+    Map<(int, int), int> initialAssignments,
+  ) async {
+    assignments = Map.of(initialAssignments);
+    dice = const [1, 4];
+    notifyListeners();
+  }
+
+  @override
+  Future<void> placeNumber(int row, int column, int number) async {
+    assignments = {...assignments, (row, column): number};
+    dice = const [2, 5];
+    notifyListeners();
+  }
+
+  @override
+  Future<void> skipTurn() async {
+    dice = const [2, 5];
+    notifyListeners();
+  }
 }
 
 class _FakeAuthFunctionInvoker implements AuthFunctionInvoker {

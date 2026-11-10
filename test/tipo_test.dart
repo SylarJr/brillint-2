@@ -68,23 +68,20 @@ void main() {
       expect(tipo.puedeAgregarValor([], 4), isFalse);
     });
 
-    test('cada tipo expone sus puntuaciones por puesto', () {
-      const tipos = <Tipo, Map<int, int>>{
-        TipoAzul(): {1: 7, 2: 5, 3: 3},
-        TipoVerde(): {1: 4, 2: 3, 3: 2},
-        TipoRojo(): {1: 6, 2: 4, 3: 2},
-        TipoMorado(): {1: 6, 2: 4, 3: 2},
-        TipoAmarillo(): {1: 8, 2: 6, 3: 4},
-        TipoBlanco(): {},
-        TipoNaranjaSuperior(): {},
-        TipoNaranjaInferior(): {},
-      };
-
-      for (final entry in tipos.entries) {
-        expect(entry.key.puntuaciones, entry.value);
-        expect(entry.key.descripcion, isNotEmpty);
+    test('cada tipo conserva su color y descripción', () {
+      const tipos = <Tipo>[
+        TipoAzul(),
+        TipoVerde(),
+        TipoRojo(),
+        TipoMorado(),
+        TipoAmarillo(),
+        TipoBlanco(),
+        TipoNaranjaSuperior(),
+        TipoNaranjaInferior(),
+      ];
+      for (final tipo in tipos) {
+        expect(tipo.descripcion, isNotEmpty);
       }
-
       expect(const TipoAzul().color, Colors.lightBlue);
       expect(const TipoRojo().color, Colors.red);
       expect(const TipoBlanco().color, const Color(0xFFE0E0E0));

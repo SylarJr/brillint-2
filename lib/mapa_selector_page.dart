@@ -1,11 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import 'multiplayer_service.dart';
 import 'tablero_bloc.dart';
 
-class MapaSelectorPage extends StatelessWidget {
+class MapaSelectorPage extends StatefulWidget {
   const MapaSelectorPage({super.key});
 
+  @override
+  State<MapaSelectorPage> createState() => _MapaSelectorPageState();
+}
+
+class _MapaSelectorPageState extends State<MapaSelectorPage> {
   static const _imagenes = [
     'img/mapa inicio.jpg',
     'img/mapa 1.jpg',
@@ -13,8 +19,60 @@ class MapaSelectorPage extends StatelessWidget {
     'img/mapa 3.jpg',
   ];
 
+  final _nombreController = TextEditingController();
+  final _codigoController = TextEditingController();
+  bool _enviando = false;
+
+  @override
+  void dispose() {
+    _nombreController.dispose();
+    _codigoController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _crearSala(int mapId) async {
+    if (_enviando) return;
+    setState(() => _enviando = true);
+    final service = context.read<MultiplayerService>();
+    try {
+      await service.createRoom(
+        mapId: mapId,
+        playerName: _nombreController.text.trim().isEmpty
+            ? 'Jugador'
+            : _nombreController.text.trim(),
+      );
+      if (!mounted) return;
+      context.read<BoardBloc>().add(BoardMapStarted(mapId));
+    } catch (_) {
+      // The service exposes the connection or server error below the form.
+    } finally {
+      if (mounted) setState(() => _enviando = false);
+    }
+  }
+
+  Future<void> _unirse() async {
+    if (_enviando || _codigoController.text.trim().isEmpty) return;
+    setState(() => _enviando = true);
+    final service = context.read<MultiplayerService>();
+    try {
+      await service.joinRoom(
+        code: _codigoController.text,
+        playerName: _nombreController.text.trim().isEmpty
+            ? 'Jugador'
+            : _nombreController.text.trim(),
+      );
+      if (!mounted) return;
+      context.read<BoardBloc>().add(BoardMapStarted(service.mapId ?? 0));
+    } catch (_) {
+      // The service exposes the connection or server error below the form.
+    } finally {
+      if (mounted) setState(() => _enviando = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final service = context.watch<MultiplayerService>();
     return Scaffold(
       body: SafeArea(
         child: LayoutBuilder(
@@ -53,7 +111,7 @@ class MapaSelectorPage extends StatelessWidget {
                       ),
                       const SizedBox(height: 34),
                       const Text(
-                        'Selecciona un mapa',
+                        'Juega con otras personas',
                         style: TextStyle(
                           color: Color(0xFF18332D),
                           fontSize: 28,
@@ -62,13 +120,63 @@ class MapaSelectorPage extends StatelessWidget {
                       ),
                       const SizedBox(height: 8),
                       const Text(
-                        'Elige un tablero para comenzar a jugar.',
+                        'Crea una sala al elegir un tablero o únete con un código de invitación.',
                         style: TextStyle(
                           color: Color(0xFF61726C),
                           fontSize: 15,
                         ),
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 20),
+                      TextField(
+                        key: const ValueKey('nombre-jugador'),
+                        controller: _nombreController,
+                        textCapitalization: TextCapitalization.words,
+                        decoration: const InputDecoration(
+                          labelText: 'Tu nombre en la partida',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              key: const ValueKey('codigo-sala'),
+                              controller: _codigoController,
+                              textCapitalization: TextCapitalization.characters,
+                              decoration: const InputDecoration(
+                                labelText: 'Código de invitación',
+                                border: OutlineInputBorder(),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          FilledButton(
+                            key: const ValueKey('unirse-sala'),
+                            onPressed: _enviando ? null : _unirse,
+                            child: const Text('Unirse'),
+                          ),
+                        ],
+                      ),
+                      if (service.errorMessage case final message?) ...[
+                        const SizedBox(height: 12),
+                        Text(
+                          message,
+                          key: const ValueKey('error-multijugador'),
+                          style: const TextStyle(color: Colors.red),
+                        ),
+                      ],
+                      const SizedBox(height: 28),
+                      const Text(
+                        'CREAR UNA SALA',
+                        style: TextStyle(
+                          color: Color(0xFF52635D),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
                       GridView.builder(
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
@@ -90,9 +198,7 @@ class MapaSelectorPage extends StatelessWidget {
                             ),
                             child: InkWell(
                               key: ValueKey('mapa-card-$index'),
-                              onTap: () => context.read<BoardBloc>().add(
-                                BoardMapStarted(index),
-                              ),
+                              onTap: _enviando ? null : () => _crearSala(index),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
@@ -108,7 +214,9 @@ class MapaSelectorPage extends StatelessWidget {
                                       vertical: 13,
                                     ),
                                     child: Text(
-                                      mapa.nombre,
+                                      _enviando
+                                          ? 'Conectando...'
+                                          : mapa.nombre,
                                       textAlign: TextAlign.center,
                                       style: const TextStyle(
                                         color: Color(0xFF183F38),

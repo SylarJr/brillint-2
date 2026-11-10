@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import 'multiplayer_service.dart';
 import 'tablero_bloc.dart';
 import 'tipo.dart';
 
@@ -103,6 +104,12 @@ class TableroPage extends StatelessWidget {
   }
 }
 
+String _nombreTipo(Tipo tipo) => switch (tipo) {
+  TipoBlanco() => 'BLANCO',
+  TipoNaranjaSuperior() => 'NARANJA 4-6',
+  TipoNaranjaInferior() => 'NARANJA 1-3',
+  _ => tipo.runtimeType.toString().replaceFirst('Tipo', '').toUpperCase(),
+};
 class _ContenidoTablero extends StatelessWidget {
   const _ContenidoTablero();
 
@@ -482,7 +489,34 @@ class _PanelLateral extends StatelessWidget {
   Widget build(BuildContext context) {
     return const Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [_PanelTurno(), SizedBox(height: 18), _PanelPuntuacion()],
+      children: [
+        _MultiplayerErrorBanner(),
+        _PanelTurno(),
+        SizedBox(height: 18),
+        _PanelPuntuacion(),
+      ],
+    );
+  }
+}
+
+class _MultiplayerErrorBanner extends StatelessWidget {
+  const _MultiplayerErrorBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    final service = context.read<MultiplayerService>();
+    return AnimatedBuilder(
+      animation: service,
+      builder: (context, _) => service.errorMessage == null
+          ? const SizedBox.shrink()
+          : Padding(
+              padding: const EdgeInsets.only(bottom: 14),
+              child: Text(
+                service.errorMessage!,
+                key: const ValueKey('error-multijugador'),
+                style: const TextStyle(color: Colors.red),
+              ),
+            ),
     );
   }
 }
@@ -513,7 +547,7 @@ class _PanelTurno extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const Text(
-                'DADOS',
+                'DADOS DEL SERVIDOR',
                 style: TextStyle(
                   color: Color(0xFF52635D),
                   fontSize: 11,
@@ -524,7 +558,7 @@ class _PanelTurno extends StatelessWidget {
               const SizedBox(height: 12),
               if (!state.listoParaJugar)
                 const Text(
-                  'Completa las zonas para empezar a lanzar.',
+                  'Prepara el tablero para empezar.',
                   style: TextStyle(
                     color: Color(0xFF61726C),
                     fontSize: 12,
@@ -542,7 +576,7 @@ class _PanelTurno extends StatelessWidget {
                       ),
                       SizedBox(width: 9),
                       Text(
-                        'Siguiente lanzamiento...',
+                        'Esperando la tirada del servidor...',
                         style: TextStyle(
                           color: Color(0xFF52635D),
                           fontSize: 12,
@@ -669,9 +703,10 @@ class _PanelPuntuacion extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<BoardBloc, BoardState>(
-      builder: (context, state) {
-        final historial = state.historialPuntuacion.reversed;
+    final service = context.read<MultiplayerService>();
+    return AnimatedBuilder(
+      animation: service,
+      builder: (context, _) {
         return Container(
           key: const ValueKey('panel-puntuacion'),
           padding: const EdgeInsets.all(20),
@@ -691,7 +726,7 @@ class _PanelPuntuacion extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'PUNTUACIÓN',
+                'PUNTUACIÓN DE LA PARTIDA',
                 style: TextStyle(
                   color: Color(0xFF52635D),
                   fontSize: 11,
@@ -699,47 +734,10 @@ class _PanelPuntuacion extends StatelessWidget {
                   letterSpacing: 1,
                 ),
               ),
-              const SizedBox(height: 7),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    '${state.puntuacionTotal}',
-                    key: const ValueKey('puntuacion-total'),
-                    style: const TextStyle(
-                      color: Color(0xFF183F38),
-                      fontSize: 40,
-                      height: 1,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  const Padding(
-                    padding: EdgeInsets.only(left: 8, bottom: 4),
-                    child: Text(
-                      'puntos',
-                      style: TextStyle(
-                        color: Color(0xFF61726C),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 22),
-              const Text(
-                'ZONAS COMPLETADAS',
-                style: TextStyle(
-                  color: Color(0xFF52635D),
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.8,
-                ),
-              ),
               const SizedBox(height: 12),
-              if (historial.isEmpty)
+              if (service.scores.isEmpty)
                 const Text(
-                  'Completa una zona para sumar puntos.',
+                  'El servidor actualizará la puntuación durante la partida.',
                   style: TextStyle(
                     color: Color(0xFF61726C),
                     fontSize: 12,
@@ -747,50 +745,50 @@ class _PanelPuntuacion extends StatelessWidget {
                   ),
                 )
               else
-                for (final entrada in historial)
+                for (final score in service.scores)
                   Padding(
-                    padding: const EdgeInsets.only(bottom: 11),
+                    padding: const EdgeInsets.only(bottom: 10),
                     child: Row(
                       children: [
-                        Container(
-                          width: 10,
-                          height: 10,
-                          decoration: BoxDecoration(
-                            color: entrada.zona.tipo.color,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
                         Expanded(
-                          child: Text(
-                            '${_nombreTipo(entrada.zona.tipo)} · ${entrada.puesto}.ª',
-                            style: const TextStyle(
-                              color: Color(0xFF18332D),
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
+                          child: Text(score.playerName),
                         ),
                         Text(
-                          '+${entrada.puntos}',
+                          '${score.total}',
                           style: const TextStyle(
                             color: Color(0xFF183F38),
-                            fontSize: 12,
+                            fontSize: 16,
                             fontWeight: FontWeight.w900,
                           ),
                         ),
                       ],
                     ),
                   ),
-              const SizedBox(height: 4),
-              const Text(
-                'Cada zona puntúa por separado. El amarillo cuenta como una sola zona: completa todas sus casillas para puntuar.',
-                style: TextStyle(
-                  color: Color(0xFF7A8983),
-                  fontSize: 10,
-                  height: 1.4,
+              if (service.zoneWinners.isNotEmpty) ...[
+                const Divider(height: 24),
+                const Text(
+                  'PRIMEROS EN CADA ZONA',
+                  style: TextStyle(
+                    color: Color(0xFF52635D),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.8,
+                  ),
                 ),
-              ),
+                const SizedBox(height: 10),
+                for (final winner in service.zoneWinners)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text(
+                      '${winner.zoneId}: ${winner.playerName} · ${winner.points} pts.',
+                      style: const TextStyle(
+                        color: Color(0xFF18332D),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+              ],
             ],
           ),
         );
@@ -798,10 +796,3 @@ class _PanelPuntuacion extends StatelessWidget {
     );
   }
 }
-
-String _nombreTipo(Tipo tipo) => switch (tipo) {
-  TipoBlanco() => 'BLANCO',
-  TipoNaranjaSuperior() => 'NARANJA 4-6',
-  TipoNaranjaInferior() => 'NARANJA 1-3',
-  _ => tipo.runtimeType.toString().replaceFirst('Tipo', '').toUpperCase(),
-};
