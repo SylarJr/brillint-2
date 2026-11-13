@@ -6,6 +6,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_application_1/multiplayer_service.dart';
 
 void main() {
+  test('uses the deployed multiplayer server by default', () {
+    expect(MultiplayerService().serverUrl, 'wss://server-41zd.onrender.com');
+  });
+
   test(
     'ignores a premature roll and accepts it after everyone confirms',
     () async {

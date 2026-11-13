@@ -154,6 +154,27 @@ void main() {
     expect(cerrada, isTrue);
   });
 
+  testWidgets('muestra el mapa completo en tarjetas de teléfono', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await _abrirSeleccionMapas(tester);
+
+    final images = tester.widgetList<Image>(find.byType(Image));
+    expect(images, hasLength(4));
+    expect(images.map((image) => image.fit), everyElement(BoxFit.contain));
+
+    final grid = tester.widget<GridView>(find.byType(GridView));
+    final gridDelegate =
+        grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount;
+    expect(gridDelegate.crossAxisCount, 1);
+    expect(gridDelegate.childAspectRatio, 0.92);
+  });
+
   testWidgets('inicio de sesión muestra el error del servidor', (
     WidgetTester tester,
   ) async {

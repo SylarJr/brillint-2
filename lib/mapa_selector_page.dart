@@ -125,20 +125,36 @@ class _MapaSelectorPageState extends State<MapaSelectorPage> {
                             ),
                           ),
                           const Spacer(),
-                          TextButton.icon(
-                            key: const ValueKey('cerrar-sesion'),
-                            onPressed: _cerrandoSesion ? null : _cerrarSesion,
-                            icon: _cerrandoSesion
-                                ? const SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Icon(Icons.logout),
-                            label: const Text('Cerrar sesión'),
-                          ),
+                          if (columnas == 1)
+                            IconButton(
+                              key: const ValueKey('cerrar-sesion'),
+                              tooltip: 'Cerrar sesión',
+                              onPressed: _cerrandoSesion ? null : _cerrarSesion,
+                              icon: _cerrandoSesion
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Icon(Icons.logout),
+                            )
+                          else
+                            TextButton.icon(
+                              key: const ValueKey('cerrar-sesion'),
+                              onPressed: _cerrandoSesion ? null : _cerrarSesion,
+                              icon: _cerrandoSesion
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Icon(Icons.logout),
+                              label: const Text('Cerrar sesión'),
+                            ),
                         ],
                       ),
                       const SizedBox(height: 34),
@@ -216,7 +232,7 @@ class _MapaSelectorPageState extends State<MapaSelectorPage> {
                           crossAxisCount: columnas,
                           crossAxisSpacing: 18,
                           mainAxisSpacing: 18,
-                          childAspectRatio: columnas == 1 ? 1.3 : 0.92,
+                          childAspectRatio: 0.92,
                         ),
                         itemBuilder: (context, index) {
                           final mapa = BoardState.mapas[index];
@@ -236,7 +252,7 @@ class _MapaSelectorPageState extends State<MapaSelectorPage> {
                                   Expanded(
                                     child: Image.asset(
                                       _imagenes[index],
-                                      fit: BoxFit.cover,
+                                      fit: BoxFit.contain,
                                     ),
                                   ),
                                   Padding(

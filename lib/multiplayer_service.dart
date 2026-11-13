@@ -61,7 +61,7 @@ class MultiplayerService extends ChangeNotifier {
   MultiplayerService({
     this.serverUrl = const String.fromEnvironment(
       'MULTIPLAYER_SERVER_URL',
-      defaultValue: 'ws://localhost:3000',
+      defaultValue: 'wss://server-41zd.onrender.com',
     ),
   });
 
