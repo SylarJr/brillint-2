@@ -245,11 +245,11 @@ class MultiplayerService extends ChangeNotifier {
           _applyOptionalBoard(data);
           notifyListeners();
         case 'dice_rolled':
-          if (!_allPlayersConfirmed(data['confirmedPlayerIds'])) {
-            errorMessage = 'Se rechazó la tirada: todavía no confirmaron todos los jugadores.';
-            notifyListeners();
+          if (diceRollId > 0 &&
+              !_allPlayersConfirmed(data['confirmedPlayerIds'])) {
             return;
           }
+          errorMessage = null;
           dice = _diceValues(data['values']);
           diceRollId++;
           _applyOptionalBoard(data);
