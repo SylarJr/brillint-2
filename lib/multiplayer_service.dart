@@ -78,11 +78,15 @@ class MultiplayerService extends ChangeNotifier {
   String? playerId;
   int? mapId;
   bool gameStarted = false;
+  int diceRollId = 0;
   List<RoomPlayer> players = const [];
   List<int> dice = const [];
   Map<(int, int), int> assignments = const {};
   List<PlayerScore> scores = const [];
   List<ZoneWinner> zoneWinners = const [];
+
+  bool get allPlayersReady =>
+      players.length >= 2 && players.every((player) => player.ready);
 
   Future<void> createRoom({
     required int mapId,
@@ -94,6 +98,13 @@ class MultiplayerService extends ChangeNotifier {
     });
     this.mapId = mapId;
     _applyRoomData(data);
+  }
+
+  Future<void> setReady(bool ready) async {
+    final response = await _request('set_ready', {'ready': ready});
+    if (response['players'] is List) {
+      _applyRoomData(response);
+    }
   }
 
   Future<void> joinRoom({
@@ -125,11 +136,8 @@ class MultiplayerService extends ChangeNotifier {
       'row': row,
       'column': column,
       'number': number,
+      'ready': true,
     });
-  }
-
-  Future<void> skipTurn() async {
-    await _request('skip_turn', const {});
   }
 
   Future<void> leaveRoom() async {
@@ -237,7 +245,13 @@ class MultiplayerService extends ChangeNotifier {
           _applyOptionalBoard(data);
           notifyListeners();
         case 'dice_rolled':
-          dice = _intList(data['values'], 'values');
+          if (!_allPlayersConfirmed(data['confirmedPlayerIds'])) {
+            errorMessage = 'Se rechazó la tirada: todavía no confirmaron todos los jugadores.';
+            notifyListeners();
+            return;
+          }
+          dice = _diceValues(data['values']);
+          diceRollId++;
           _applyOptionalBoard(data);
           notifyListeners();
         case 'board_state':
@@ -258,6 +272,17 @@ class MultiplayerService extends ChangeNotifier {
       errorMessage = 'No se pudo interpretar un mensaje del servidor: $error';
       notifyListeners();
     }
+  }
+
+  bool _allPlayersConfirmed(Object? value) {
+    if (players.isEmpty ||
+        value is! List ||
+        value.any((playerId) => playerId is! String)) {
+      return false;
+    }
+    final confirmedIds = value.cast<String>().toSet();
+    return confirmedIds.length == players.length &&
+        confirmedIds.containsAll(players.map((player) => player.id));
   }
 
   void _applyRoomData(Map<String, Object?> data) {
@@ -287,7 +312,7 @@ class MultiplayerService extends ChangeNotifier {
       };
     }
     if (data['values'] is List) {
-      dice = _intList(data['values'], 'values');
+      dice = _diceValues(data['values']);
     }
   }
 
@@ -320,6 +345,7 @@ class MultiplayerService extends ChangeNotifier {
     playerId = null;
     mapId = null;
     gameStarted = false;
+    diceRollId = 0;
     players = const [];
     dice = const [];
     assignments = const {};
@@ -341,6 +367,17 @@ class MultiplayerService extends ChangeNotifier {
       throw FormatException('El campo "$field" debe ser una lista de enteros.');
     }
     return value.cast<int>();
+  }
+
+  static List<int> _diceValues(Object? value) {
+    final values = _intList(value, 'values');
+    if (values.length != 2 ||
+        values.any((number) => number < 1 || number > 6)) {
+      throw const FormatException(
+        'Los dados del servidor deben contener dos números entre 1 y 6.',
+      );
+    }
+    return values;
   }
 
   static Map<String, Object?> _objectMap(Object? value) {

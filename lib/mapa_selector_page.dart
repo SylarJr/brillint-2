@@ -5,9 +5,14 @@ import 'multiplayer_service.dart';
 import 'tablero_bloc.dart';
 
 class MapaSelectorPage extends StatefulWidget {
-  const MapaSelectorPage({super.key, required this.onLogout});
+  const MapaSelectorPage({
+    super.key,
+    required this.onLogout,
+    required this.playerName,
+  });
 
   final Future<void> Function() onLogout;
+  final String playerName;
 
   @override
   State<MapaSelectorPage> createState() => _MapaSelectorPageState();
@@ -21,14 +26,12 @@ class _MapaSelectorPageState extends State<MapaSelectorPage> {
     'img/mapa 3.jpg',
   ];
 
-  final _nombreController = TextEditingController();
   final _codigoController = TextEditingController();
   bool _enviando = false;
   bool _cerrandoSesion = false;
 
   @override
   void dispose() {
-    _nombreController.dispose();
     _codigoController.dispose();
     super.dispose();
   }
@@ -40,9 +43,7 @@ class _MapaSelectorPageState extends State<MapaSelectorPage> {
     try {
       await service.createRoom(
         mapId: mapId,
-        playerName: _nombreController.text.trim().isEmpty
-            ? 'Jugador'
-            : _nombreController.text.trim(),
+        playerName: widget.playerName,
       );
       if (!mounted) return;
       context.read<BoardBloc>().add(BoardMapStarted(mapId));
@@ -60,9 +61,7 @@ class _MapaSelectorPageState extends State<MapaSelectorPage> {
     try {
       await service.joinRoom(
         code: _codigoController.text,
-        playerName: _nombreController.text.trim().isEmpty
-            ? 'Jugador'
-            : _nombreController.text.trim(),
+        playerName: widget.playerName,
       );
       if (!mounted) return;
       context.read<BoardBloc>().add(BoardMapStarted(service.mapId ?? 0));
@@ -160,16 +159,15 @@ class _MapaSelectorPageState extends State<MapaSelectorPage> {
                         ),
                       ),
                       const SizedBox(height: 20),
-                      TextField(
+                      Text(
+                        'Jugador: ${widget.playerName}',
                         key: const ValueKey('nombre-jugador'),
-                        controller: _nombreController,
-                        textCapitalization: TextCapitalization.words,
-                        decoration: const InputDecoration(
-                          labelText: 'Tu nombre en la partida',
-                          border: OutlineInputBorder(),
+                        style: const TextStyle(
+                          color: Color(0xFF61726C),
+                          fontSize: 15,
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 20),
                       Row(
                         children: [
                           Expanded(

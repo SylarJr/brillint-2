@@ -29,7 +29,10 @@ Future<void> _abrirSeleccionMapas(
       child: ChangeNotifierProvider<MultiplayerService>.value(
         value: service,
         child: MaterialApp(
-          home: PaginaPrincipal(onLogout: onLogout ?? () async {}),
+          home: PaginaPrincipal(
+            onLogout: onLogout ?? () async {},
+            playerName: 'Jugador_1',
+          ),
         ),
       ),
     ),
@@ -42,19 +45,36 @@ Future<void> _entrarAlMapa(
   int mapa = 0,
   MultiplayerService? multiplayer,
 }) async {
-  await _abrirSeleccionMapas(tester, multiplayer: multiplayer);
+  final service = multiplayer ?? _FakeMultiplayerService();
+  await _abrirSeleccionMapas(tester, multiplayer: service);
   final tarjeta = find.byKey(ValueKey('mapa-card-$mapa'));
   await tester.ensureVisible(tarjeta);
   await tester.tap(tarjeta);
   await tester.pumpAndSettle();
-  final preparar = find.byKey(const ValueKey('boton-preparar-tablero'));
+  final readyButton = find.byKey(const ValueKey('boton-listo-para-empezar'));
   await tester.scrollUntilVisible(
-    preparar,
+    readyButton,
     250,
     scrollable: find.byType(Scrollable).last,
   );
-  await tester.tap(preparar);
+  await tester.tap(readyButton);
   await tester.pumpAndSettle();
+  (service as _FakeMultiplayerService).markAllPlayersReady();
+  await tester.pumpAndSettle();
+}
+
+Future<void> _completarTablero(WidgetTester tester) async {
+  for (var index = 0; index < 6; index++) {
+    final (row, column) = BoardState.casillasObjetivo.elementAt(index);
+    final cell = find.byKey(ValueKey('celda-$row-$column'));
+    await tester.ensureVisible(cell);
+    await tester.tap(cell);
+    await tester.pump();
+    final number = find.byKey(ValueKey('numero-${index + 1}'));
+    await tester.ensureVisible(number);
+    await tester.tap(number);
+    await tester.pump();
+  }
 }
 
 void main() {
@@ -80,7 +100,7 @@ void main() {
     WidgetTester tester,
   ) async {
     final invoker = _FakeAuthFunctionInvoker();
-    var authenticated = false;
+    String? authenticatedAs;
 
     await tester.pumpWidget(
       MaterialApp(
@@ -90,7 +110,7 @@ void main() {
             tokenStorage: _FakeSessionTokenStorage(),
           ),
           onOpenMaps: () {},
-          onAuthenticated: () => authenticated = true,
+          onAuthenticated: (playerName) => authenticatedAs = playerName,
         ),
       ),
     );
@@ -116,7 +136,7 @@ void main() {
       'contrasena': 'password123',
     });
 
-    expect(authenticated, isTrue);
+    expect(authenticatedAs, 'jugador_1');
     expect(find.text('password123'), findsNothing);
   });
 
@@ -151,7 +171,7 @@ void main() {
             tokenStorage: _FakeSessionTokenStorage(),
           ),
           onOpenMaps: () {},
-          onAuthenticated: () {},
+          onAuthenticated: (_) {},
         ),
       ),
     );
@@ -197,11 +217,13 @@ void main() {
     expect(bloc.state.asignaciones, isEmpty);
     expect(find.text('Lobby'), findsOneWidget);
     expect(find.text('Q7M4PX'), findsOneWidget);
-    expect(find.textContaining('cada jugador preparará'), findsOneWidget);
+    expect(find.text('Jugador_1'), findsOneWidget);
+    expect(service.lastPlayerName, 'Jugador_1');
+    expect(find.textContaining('Todos deben marcarse listos'), findsOneWidget);
     expect(find.byKey(const ValueKey('salir-mapa')), findsNothing);
   });
 
-  testWidgets('el lobby permite preparar el tablero sin iniciar la partida', (
+  testWidgets('el lobby espera a todos antes de abrir el tablero', (
     WidgetTester tester,
   ) async {
     final service = _FakeMultiplayerService();
@@ -212,34 +234,56 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Lobby'), findsOneWidget);
 
-    final preparar = find.byKey(const ValueKey('boton-preparar-tablero'));
+    final listo = find.byKey(const ValueKey('boton-listo-para-empezar'));
     await tester.scrollUntilVisible(
-      preparar,
+      listo,
       250,
       scrollable: find.byType(Scrollable).last,
     );
-    await tester.tap(preparar);
+    await tester.tap(listo);
     await tester.pumpAndSettle();
 
+    expect(service.players.first.ready, isTrue);
+    expect(service.players.last.ready, isFalse);
+    expect(find.text('Lobby'), findsOneWidget);
+    expect(find.text('Mapa de colores'), findsNothing);
+    expect(service.allPlayersReady, isFalse);
+
+    service.markAllPlayersReady();
+    await tester.pumpAndSettle();
     expect(service.initialAssignments, isNull);
     expect(service.gameStarted, isFalse);
     expect(find.text('Mapa de colores'), findsOneWidget);
     expect(find.byKey(const ValueKey('boton-estoy-listo')), findsNothing);
-    expect(find.byKey(const ValueKey('volver-lobby')), findsOneWidget);
+    expect(find.byKey(const ValueKey('volver-lobby')), findsNothing);
   });
 
-  testWidgets('se puede volver al lobby antes de confirmar listo', (
+  testWidgets('un jugador puede cancelar su confirmación en el lobby', (
     WidgetTester tester,
   ) async {
     final service = _FakeMultiplayerService();
-    await _entrarAlMapa(tester, multiplayer: service);
+    await _abrirSeleccionMapas(tester, multiplayer: service);
+    await tester.tap(find.byKey(const ValueKey('mapa-card-0')));
+    await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const ValueKey('volver-lobby')));
+    final readyButton = find.byKey(const ValueKey('boton-listo-para-empezar'));
+    await tester.scrollUntilVisible(
+      readyButton,
+      250,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.tap(readyButton);
+    await tester.pumpAndSettle();
+    expect(service.players.first.ready, isTrue);
+    expect(find.text('Lobby'), findsOneWidget);
+
+    await tester.tap(readyButton);
     await tester.pumpAndSettle();
 
     expect(find.text('Lobby'), findsOneWidget);
     expect(service.gameStarted, isFalse);
     expect(service.initialAssignments, isNull);
+    expect(service.players.first.ready, isFalse);
   });
 
   testWidgets('seis números permiten enviar listo, pero no generan dados', (
@@ -251,22 +295,26 @@ void main() {
     final bloc = tester
         .element(find.byKey(const ValueKey('celda-0-0')))
         .read<BoardBloc>();
-    for (var index = 0; index < 6; index++) {
-      final (row, column) = BoardState.casillasObjetivo.elementAt(index);
-      final cell = find.byKey(ValueKey('celda-$row-$column'));
-      await tester.ensureVisible(cell);
-      await tester.tap(cell);
-      await tester.pump();
-      final number = find.byKey(ValueKey('numero-${index + 1}'));
-      await tester.ensureVisible(number);
-      await tester.tap(number);
-      await tester.pump();
-    }
+    await _completarTablero(tester);
 
     expect(bloc.state.completo, isTrue);
     expect(bloc.state.listoParaJugar, isFalse);
     expect(service.initialAssignments, isNull);
     expect(find.byKey(const ValueKey('boton-estoy-listo')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('boton-deshacer-inicial')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('boton-deshacer-inicial')));
+    await tester.pump();
+    expect(bloc.state.asignaciones.length, 5);
+    expect(find.byKey(const ValueKey('boton-estoy-listo')), findsNothing);
+    final (lastRow, lastColumn) = BoardState.casillasObjetivo.elementAt(5);
+    await tester.tap(find.byKey(ValueKey('celda-$lastRow-$lastColumn')));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('numero-6')));
+    await tester.pump();
 
     await tester.tap(find.byKey(const ValueKey('boton-estoy-listo')));
     await tester.pump();
@@ -278,6 +326,70 @@ void main() {
     expect(service.gameStarted, isFalse);
     expect(find.text('Estoy listo para jugar'), findsNothing);
     expect(find.text('Esperando a que todos estén listos...'), findsOneWidget);
+  });
+
+  testWidgets('confirma una jugada, permite deshacer y espera al servidor', (
+    WidgetTester tester,
+  ) async {
+    final service = _FakeMultiplayerService();
+    await _entrarAlMapa(tester, multiplayer: service);
+    await _completarTablero(tester);
+
+    final bloc = tester
+        .element(find.byKey(const ValueKey('celda-0-0')))
+        .read<BoardBloc>();
+    await tester.tap(find.byKey(const ValueKey('boton-estoy-listo')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    service.startGame(
+      assignments: service.initialAssignments!,
+      dice: const [1, 2],
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(bloc.state.isDiceRolled, isTrue);
+
+    await tester.tap(find.byKey(const ValueKey('dado-0')));
+    await tester.pump();
+    final position = bloc.state.validPositions.first;
+    final cell = find.byKey(ValueKey('celda-${position.x}-${position.y}'));
+    await tester.ensureVisible(cell);
+    await tester.tap(cell);
+    await tester.pump();
+
+    expect(bloc.state.movimientoPendiente, hasLength(1));
+    expect(find.byKey(const ValueKey('boton-ya-puse-numero')), findsOneWidget);
+    final undo = find.byKey(const ValueKey('boton-deshacer-jugada'));
+    await tester.ensureVisible(undo);
+    await tester.tap(undo);
+    await tester.pump();
+    expect(bloc.state.movimientoPendiente, isEmpty);
+
+    await tester.ensureVisible(cell);
+    await tester.tap(cell);
+    await tester.pump();
+    final confirm = find.byKey(const ValueKey('boton-ya-puse-numero'));
+    await tester.ensureVisible(confirm);
+    await tester.tap(confirm);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(service.confirmedMoves, hasLength(1));
+    expect(bloc.state.turnoConfirmado, isTrue);
+    expect(find.byKey(const ValueKey('esperando-jugador')), findsOneWidget);
+    expect(find.byKey(const ValueKey('boton-deshacer-jugada')), findsNothing);
+
+    service
+      ..assignments = {...service.assignments, (position.x, position.y): 1}
+      ..diceRollId = service.diceRollId + 1
+      ..notifyListeners();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(bloc.state.turnoConfirmado, isFalse);
+    expect(bloc.state.movimientoPendiente, isEmpty);
+    expect(bloc.state.dados, [1, 2]);
   });
 
   testWidgets('muestra el panel de puntuación a la derecha en escritorio', (
@@ -321,7 +433,7 @@ void main() {
     final bloc = tester
         .element(find.byKey(const ValueKey('celda-0-0')))
         .read<BoardBloc>();
-    expect(bloc.state.dados, isEmpty);
+    expect(bloc.state.dados, [2, 5]);
     expect(find.text('Prepara el tablero para empezar.'), findsOneWidget);
 
     service
@@ -338,7 +450,7 @@ void main() {
     expect(find.byKey(const ValueKey('dado-1')), findsOneWidget);
     expect(find.text('Ana'), findsOneWidget);
     expect(find.text('15'), findsOneWidget);
-    expect(find.byType(AnimatedSwitcher), findsNWidgets(2));
+    expect(find.byType(AnimatedSwitcher), findsNothing);
     expect(find.byKey(const ValueKey('puntuacion-total')), findsNothing);
   });
 }
@@ -347,12 +459,15 @@ class _FakeMultiplayerService extends MultiplayerService {
   _FakeMultiplayerService() : super(serverUrl: 'ws://unused');
 
   Map<(int, int), int>? initialAssignments;
+  final List<(int, int, int)> confirmedMoves = [];
+  String? lastPlayerName;
 
   @override
   Future<void> createRoom({
     required int mapId,
     required String playerName,
   }) async {
+    lastPlayerName = playerName;
     roomCode = 'Q7M4PX';
     playerId = 'player-1';
     this.mapId = mapId;
@@ -368,14 +483,46 @@ class _FakeMultiplayerService extends MultiplayerService {
     required String code,
     required String playerName,
   }) async {
+    lastPlayerName = playerName;
     roomCode = code.toUpperCase();
     playerId = 'player-2';
     mapId = 0;
+    players = const [
+      RoomPlayer(id: 'player-1', name: 'Anfitrión', ready: false),
+      RoomPlayer(id: 'player-2', name: 'Invitado', ready: false),
+    ];
     notifyListeners();
   }
 
-  void startGame() {
+  @override
+  Future<void> setReady(bool ready) async {
+    players = [
+      for (final player in players)
+        RoomPlayer(
+          id: player.id,
+          name: player.name,
+          ready: player.id == playerId ? ready : player.ready,
+        ),
+    ];
+    notifyListeners();
+  }
+
+  void markAllPlayersReady() {
+    players = [
+      for (final player in players)
+        RoomPlayer(id: player.id, name: player.name, ready: true),
+    ];
+    notifyListeners();
+  }
+
+  void startGame({
+    Map<(int, int), int>? assignments,
+    List<int> dice = const [2, 5],
+  }) {
     gameStarted = true;
+    this.assignments = assignments ?? this.assignments;
+    this.dice = dice;
+    diceRollId++;
     notifyListeners();
   }
 
@@ -389,15 +536,7 @@ class _FakeMultiplayerService extends MultiplayerService {
 
   @override
   Future<void> placeNumber(int row, int column, int number) async {
-    assignments = {...assignments, (row, column): number};
-    dice = const [2, 5];
-    notifyListeners();
-  }
-
-  @override
-  Future<void> skipTurn() async {
-    dice = const [2, 5];
-    notifyListeners();
+    confirmedMoves.add((row, column, number));
   }
 }
 

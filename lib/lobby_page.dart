@@ -7,18 +7,30 @@ class LobbyPage extends StatefulWidget {
     super.key,
     required this.multiplayer,
     required this.onLeave,
-    required this.onPrepareBoard,
   });
 
   final MultiplayerService multiplayer;
   final VoidCallback onLeave;
-  final VoidCallback onPrepareBoard;
 
   @override
   State<LobbyPage> createState() => _LobbyPageState();
 }
 
 class _LobbyPageState extends State<LobbyPage> {
+  bool _sendingReady = false;
+
+  Future<void> _toggleReady(bool ready) async {
+    if (_sendingReady) return;
+    setState(() => _sendingReady = true);
+    try {
+      await widget.multiplayer.setReady(ready);
+    } catch (_) {
+      // The service exposes the server error in the lobby.
+    } finally {
+      if (mounted) setState(() => _sendingReady = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
@@ -28,6 +40,9 @@ class _LobbyPageState extends State<LobbyPage> {
         final readyCount = service.players
             .where((player) => player.ready)
             .length;
+        final isReady = service.players
+            .where((player) => player.id == service.playerId)
+            .any((player) => player.ready);
         return Scaffold(
           appBar: AppBar(
             leading: IconButton(
@@ -61,7 +76,7 @@ class _LobbyPageState extends State<LobbyPage> {
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      'Comparte este código con tus amigos. Antes de empezar, cada jugador preparará su tablero con 6 números.',
+                      'Comparte este código con tus amigos. Todos deben marcarse listos para pasar a preparar el tablero.',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: Color(0xFF61726C), height: 1.5),
                     ),
@@ -119,9 +134,17 @@ class _LobbyPageState extends State<LobbyPage> {
                     ),
                     const SizedBox(height: 16),
                     FilledButton(
-                      key: const ValueKey('boton-preparar-tablero'),
-                      onPressed: widget.onPrepareBoard,
-                      child: const Text('Preparar tablero'),
+                      key: const ValueKey('boton-listo-para-empezar'),
+                      onPressed: _sendingReady
+                          ? null
+                          : () => _toggleReady(!isReady),
+                      child: Text(
+                        _sendingReady
+                            ? 'Actualizando...'
+                            : isReady
+                            ? 'Cancelar listo'
+                            : 'Listo para empezar',
+                      ),
                     ),
                     if (service.errorMessage case final message?) ...[
                       const SizedBox(height: 12),

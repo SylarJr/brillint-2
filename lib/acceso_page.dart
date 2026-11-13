@@ -11,7 +11,7 @@ class AccesoPage extends StatefulWidget {
   });
 
   final VoidCallback onOpenMaps;
-  final VoidCallback onAuthenticated;
+  final ValueChanged<String> onAuthenticated;
   final AuthService? authService;
 
   @override
@@ -42,13 +42,14 @@ class _AccesoPageState extends State<AccesoPage> {
 
     try {
       final authService = widget.authService ?? AuthService();
+      late final AuthSession session;
       if (_esRegistro) {
-        await authService.register(
+        session = await authService.register(
           _usuarioController.text.trim(),
           _contrasenaController.text,
         );
       } else {
-        await authService.login(
+        session = await authService.login(
           _usuarioController.text.trim(),
           _contrasenaController.text,
         );
@@ -56,7 +57,7 @@ class _AccesoPageState extends State<AccesoPage> {
 
       if (!mounted) return;
       _contrasenaController.clear();
-      widget.onAuthenticated();
+      widget.onAuthenticated(session.usuarioName);
     } on AuthServiceException catch (error) {
       if (!mounted) return;
       setState(() => _error = error.toString());

@@ -48,8 +48,16 @@ class PlaceNumberEvent extends BoardEvent {
   final int number;
 }
 
-class SkipTurnEvent extends BoardEvent {
-  const SkipTurnEvent();
+class UndoLastPlacementEvent extends BoardEvent {
+  const UndoLastPlacementEvent();
+}
+
+class UndoPendingMoveEvent extends BoardEvent {
+  const UndoPendingMoveEvent();
+}
+
+class ConfirmMoveEvent extends BoardEvent {
+  const ConfirmMoveEvent();
 }
 
 class BoardReadyPressed extends BoardEvent {
@@ -70,10 +78,14 @@ class BoardState {
     required this.casillaSeleccionada,
     required this.listoParaJugar,
     this.casillaOrigenMovimiento,
+    this.historialAsignaciones = const [],
+    this.movimientoPendiente = const {},
     this.dados = const [],
     this.validPositions = const {},
     this.isDiceRolled = false,
     this.enviandoListo = false,
+    this.enviandoJugada = false,
+    this.turnoConfirmado = false,
     this.selectedDiceValue,
     this.mapaSeleccionado = 0,
     this.mapaAbierto = false,
@@ -93,10 +105,14 @@ class BoardState {
   final (int, int)? casillaSeleccionada;
   final bool listoParaJugar;
   final (int, int)? casillaOrigenMovimiento;
+  final List<Map<(int, int), int>> historialAsignaciones;
+  final Map<(int, int), int> movimientoPendiente;
   final List<int> dados;
   final Set<Point<int>> validPositions;
   final bool isDiceRolled;
   final bool enviandoListo;
+  final bool enviandoJugada;
+  final bool turnoConfirmado;
   final int? selectedDiceValue;
   final int mapaSeleccionado;
   final bool mapaAbierto;
@@ -118,6 +134,9 @@ class BoardState {
       casillasMarcadas.contains((fila, columna));
 
   int? numeroEn(int fila, int columna) => asignaciones[(fila, columna)];
+
+  int? numeroVisibleEn(int fila, int columna) =>
+      movimientoPendiente[(fila, columna)] ?? numeroEn(fila, columna);
 
   List<int> numerosColocablesEn(int fila, int columna) {
     if (!isDiceRolled ||
@@ -256,11 +275,16 @@ class BoardState {
     Set<Point<int>>? validPositions,
     bool? isDiceRolled,
     bool? enviandoListo,
+    bool? enviandoJugada,
+    bool? turnoConfirmado,
+    List<Map<(int, int), int>>? historialAsignaciones,
+    Map<(int, int), int>? movimientoPendiente,
     int? selectedDiceValue,
     int? mapaSeleccionado,
     bool? mapaAbierto,
     bool clearSelection = false,
     bool clearMoveSource = false,
+    bool clearMovimientoPendiente = false,
     bool clearSelectedDiceValue = false,
   }) => BoardState(
     matriz: matriz,
@@ -275,10 +299,16 @@ class BoardState {
     casillaOrigenMovimiento: clearMoveSource
         ? null
         : casillaOrigenMovimiento ?? this.casillaOrigenMovimiento,
+    historialAsignaciones: historialAsignaciones ?? this.historialAsignaciones,
+    movimientoPendiente: clearMovimientoPendiente
+        ? const {}
+        : movimientoPendiente ?? this.movimientoPendiente,
     dados: dados ?? this.dados,
     validPositions: validPositions ?? this.validPositions,
     isDiceRolled: isDiceRolled ?? this.isDiceRolled,
     enviandoListo: enviandoListo ?? this.enviandoListo,
+    enviandoJugada: enviandoJugada ?? this.enviandoJugada,
+    turnoConfirmado: turnoConfirmado ?? this.turnoConfirmado,
     selectedDiceValue: clearSelectedDiceValue
         ? null
         : selectedDiceValue ?? this.selectedDiceValue,
@@ -290,6 +320,7 @@ class BoardBloc extends Bloc<BoardEvent, BoardState> {
     : _multiplayer = multiplayer,
       _lastServerAssignments = multiplayer?.assignments ?? const {},
       _lastServerDice = multiplayer?.dice ?? const [],
+      _lastServerDiceRoll = multiplayer?.diceRollId ?? 0,
       super(BoardState.inicial()) {
     on<BoardCellSelected>((event, emit) {
       if (event.fila < 0 ||
@@ -388,6 +419,10 @@ class BoardBloc extends Bloc<BoardEvent, BoardState> {
         emit(
           state.copyWith(
             asignaciones: Map.unmodifiable(nuevasAsignaciones),
+            historialAsignaciones: [
+              ...state.historialAsignaciones,
+              Map.unmodifiable(state.asignaciones),
+            ],
             clearSelection: true,
             clearMoveSource: true,
           ),
@@ -421,6 +456,10 @@ class BoardBloc extends Bloc<BoardEvent, BoardState> {
         emit(
           state.copyWith(
             asignaciones: Map.unmodifiable(nuevasAsignaciones),
+            historialAsignaciones: [
+              ...state.historialAsignaciones,
+              Map.unmodifiable(state.asignaciones),
+            ],
             clearSelection: true,
           ),
         );
@@ -437,7 +476,29 @@ class BoardBloc extends Bloc<BoardEvent, BoardState> {
             ...state.asignaciones,
             casilla: event.numero,
           }),
+          historialAsignaciones: [
+            ...state.historialAsignaciones,
+            Map.unmodifiable(state.asignaciones),
+          ],
           clearSelection: true,
+        ),
+      );
+    });
+
+    on<UndoLastPlacementEvent>((event, emit) {
+      if (_multiplayer?.gameStarted == true ||
+          state.listoParaJugar ||
+          state.historialAsignaciones.isEmpty) {
+        return;
+      }
+      emit(
+        state.copyWith(
+          asignaciones: state.historialAsignaciones.last,
+          historialAsignaciones: state.historialAsignaciones
+              .take(state.historialAsignaciones.length - 1)
+              .toList(growable: false),
+          clearSelection: true,
+          clearMoveSource: true,
         ),
       );
     });
@@ -452,10 +513,32 @@ class BoardBloc extends Bloc<BoardEvent, BoardState> {
       emit(state.copyWith(enviandoListo: true, clearSelection: true));
       try {
         await _multiplayer?.submitInitialBoard(state.asignaciones);
-        emit(state.copyWith(listoParaJugar: true, enviandoListo: false));
+        emit(
+          state.copyWith(
+            listoParaJugar: true,
+            enviandoListo: false,
+            historialAsignaciones: const [],
+          ),
+        );
       } catch (_) {
         emit(state.copyWith(enviandoListo: false));
       }
+    });
+
+    on<UndoPendingMoveEvent>((event, emit) {
+      if (state.movimientoPendiente.isEmpty ||
+          state.turnoConfirmado ||
+          state.enviandoJugada) {
+        return;
+      }
+      emit(
+        state.copyWith(
+          clearMovimientoPendiente: true,
+          validPositions: state.selectedDiceValue == null
+              ? const {}
+              : state.calcularPosicionesValidas(state.selectedDiceValue!),
+        ),
+      );
     });
 
     on<SelectDiceValueEvent>((event, emit) {
@@ -472,38 +555,61 @@ class BoardBloc extends Bloc<BoardEvent, BoardState> {
       );
     });
 
-    on<PlaceNumberEvent>((event, emit) async {
+    on<PlaceNumberEvent>((event, emit) {
       if (!state.listoParaJugar ||
           _multiplayer?.gameStarted != true ||
           !state.isDiceRolled ||
           state.selectedDiceValue != event.number ||
           !state
               .numerosColocablesEn(event.row, event.col)
-              .contains(event.number)) {
+              .contains(event.number) ||
+          state.movimientoPendiente.isNotEmpty ||
+          state.turnoConfirmado) {
         return;
       }
 
-      try {
-        await _multiplayer?.placeNumber(event.row, event.col, event.number);
-      } catch (_) {
-        // The service exposes the server error to the player.
-      }
+      emit(
+        state.copyWith(
+          movimientoPendiente: {(event.row, event.col): event.number},
+          validPositions: const {},
+        ),
+      );
     });
 
-    on<SkipTurnEvent>((event, emit) async {
-      if (!state.listoParaJugar ||
-          _multiplayer?.gameStarted != true ||
-          !state.isDiceRolled) {
+    on<ConfirmMoveEvent>((event, emit) async {
+      final multiplayer = _multiplayer;
+      if (state.movimientoPendiente.isEmpty ||
+          state.turnoConfirmado ||
+          state.enviandoJugada ||
+          multiplayer?.gameStarted != true) {
         return;
       }
+
+      final entry = state.movimientoPendiente.entries.single;
+      final rollId = multiplayer!.diceRollId;
+      emit(state.copyWith(enviandoJugada: true));
       try {
-        await _multiplayer?.skipTurn();
+        await multiplayer.placeNumber(entry.key.$1, entry.key.$2, entry.value);
+        final roundAlreadyAdvanced = multiplayer.diceRollId != rollId;
+        emit(
+          state.copyWith(
+            enviandoJugada: false,
+            turnoConfirmado: !roundAlreadyAdvanced,
+            clearMovimientoPendiente: roundAlreadyAdvanced,
+          ),
+        );
       } catch (_) {
         // The service exposes the server error to the player.
+        emit(state.copyWith(enviandoJugada: false));
       }
     });
 
     on<_ServerBoardUpdated>((event, emit) {
+      final pending = state.movimientoPendiente;
+      final pendingMoveApplied =
+          event.assignments != null &&
+          pending.isNotEmpty &&
+          event.assignments![pending.keys.single] == pending.values.single;
       emit(
         state.copyWith(
           asignaciones: event.assignments == null
@@ -511,6 +617,8 @@ class BoardBloc extends Bloc<BoardEvent, BoardState> {
               : Map.unmodifiable(event.assignments!),
           dados: event.dice,
           isDiceRolled: event.dice.isNotEmpty,
+          turnoConfirmado: event.newDiceRoll ? false : null,
+          clearMovimientoPendiente: pendingMoveApplied || event.newDiceRoll,
           validPositions: const {},
           clearSelectedDiceValue: true,
         ),
@@ -530,15 +638,18 @@ class BoardBloc extends Bloc<BoardEvent, BoardState> {
       _multiplayer.assignments,
     );
     final diceChanged = !listEquals(_lastServerDice, _multiplayer.dice);
-    if (!assignmentsChanged && !diceChanged) {
+    final diceRollChanged = _lastServerDiceRoll != _multiplayer.diceRollId;
+    if (!assignmentsChanged && !diceChanged && !diceRollChanged) {
       return;
     }
     _lastServerAssignments = Map.unmodifiable(_multiplayer.assignments);
     _lastServerDice = List.unmodifiable(_multiplayer.dice);
+    _lastServerDiceRoll = _multiplayer.diceRollId;
     add(
       _ServerBoardUpdated(
         assignmentsChanged ? _multiplayer.assignments : null,
         _multiplayer.dice,
+        diceRollChanged,
       ),
     );
   }
@@ -546,6 +657,7 @@ class BoardBloc extends Bloc<BoardEvent, BoardState> {
   final MultiplayerService? _multiplayer;
   Map<(int, int), int> _lastServerAssignments;
   List<int> _lastServerDice;
+  int _lastServerDiceRoll;
 
   @override
   Future<void> close() {
@@ -555,8 +667,9 @@ class BoardBloc extends Bloc<BoardEvent, BoardState> {
 }
 
 class _ServerBoardUpdated extends BoardEvent {
-  const _ServerBoardUpdated(this.assignments, this.dice);
+  const _ServerBoardUpdated(this.assignments, this.dice, this.newDiceRoll);
 
   final Map<(int, int), int>? assignments;
   final List<int> dice;
+  final bool newDiceRoll;
 }

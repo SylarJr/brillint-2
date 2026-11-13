@@ -184,25 +184,42 @@ class _ContenidoTablero extends StatelessWidget {
             }
             return Padding(
               padding: const EdgeInsets.only(top: 18),
-              child: FilledButton.icon(
-                key: const ValueKey('boton-estoy-listo'),
-                onPressed: state.enviandoListo
-                    ? null
-                    : () => context.read<BoardBloc>().add(
-                        const BoardReadyPressed(),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: FilledButton.icon(
+                      key: const ValueKey('boton-estoy-listo'),
+                      onPressed: state.enviandoListo
+                          ? null
+                          : () => context.read<BoardBloc>().add(
+                              const BoardReadyPressed(),
+                            ),
+                      icon: state.enviandoListo
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.check_circle_outline),
+                      label: Text(
+                        state.enviandoListo
+                            ? 'Enviando...'
+                            : 'Estoy listo para jugar',
                       ),
-                icon: state.enviandoListo
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.check_circle_outline),
-                label: Text(
-                  state.enviandoListo
-                      ? 'Enviando...'
-                      : 'Estoy listo para jugar',
-                ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  OutlinedButton.icon(
+                    key: const ValueKey('boton-deshacer-inicial'),
+                    onPressed: state.enviandoListo
+                        ? null
+                        : () => context.read<BoardBloc>().add(
+                            const UndoLastPlacementEvent(),
+                          ),
+                    icon: const Icon(Icons.undo),
+                    label: const Text('Deshacer'),
+                  ),
+                ],
               ),
             );
           },
@@ -282,7 +299,7 @@ class _MatrizTablero extends StatelessWidget {
             final columna = index % 7;
             final tipo = state.matriz[fila][columna];
             final marcada = state.esCasillaMarcada(fila, columna);
-            final numero = state.numeroEn(fila, columna);
+            final numero = state.numeroVisibleEn(fila, columna);
             final seleccionada = state.casillaSeleccionada == (fila, columna);
             final origenMovimiento =
                 state.casillaOrigenMovimiento == (fila, columna);
@@ -298,7 +315,7 @@ class _MatrizTablero extends StatelessWidget {
               button: true,
               hint: valida ? 'Casilla válida para colocar un dado' : null,
               child: AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
+                duration: Duration.zero,
                 decoration: BoxDecoration(
                   color: valida
                       ? Color.lerp(tipo.color, const Color(0xFF00E676), 0.42)
@@ -350,7 +367,10 @@ class _MatrizTablero extends StatelessWidget {
                     key: ValueKey('celda-$fila-$columna'),
                     borderRadius: BorderRadius.circular(8),
                     onTap: state.listoParaJugar
-                        ? valida && state.isDiceRolled
+                        ? valida &&
+                                  state.isDiceRolled &&
+                                  state.movimientoPendiente.isEmpty &&
+                                  !state.turnoConfirmado
                               ? () {
                                   final opciones = state.numerosColocablesEn(
                                     fila,
@@ -375,29 +395,17 @@ class _MatrizTablero extends StatelessWidget {
                           ? marcada
                                 ? const _MarcadorPendiente()
                                 : const SizedBox.shrink()
-                          : TweenAnimationBuilder<double>(
+                          : Text(
+                              '$numero',
                               key: ValueKey(
                                 'numero-celda-$fila-$columna-$numero',
                               ),
-                              tween: Tween(begin: 0, end: 1),
-                              duration: const Duration(milliseconds: 320),
-                              curve: Curves.easeOutBack,
-                              builder: (context, progress, child) => Opacity(
-                                opacity: progress.clamp(0.0, 1.0),
-                                child: Transform.scale(
-                                  scale: progress,
-                                  child: child,
-                                ),
-                              ),
-                              child: Text(
-                                '$numero',
-                                style: TextStyle(
-                                  color: numeroInicialSeleccionado
-                                      ? Color(0xFF2563EB)
-                                      : Color(0xFF18332D),
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w900,
-                                ),
+                              style: TextStyle(
+                                color: numeroInicialSeleccionado
+                                    ? Color(0xFF2563EB)
+                                    : Color(0xFF18332D),
+                                fontSize: 18,
+                                fontWeight: FontWeight.w900,
                               ),
                             ),
                     ),
@@ -665,9 +673,13 @@ class _PanelTurno extends StatelessWidget {
                       Expanded(
                         child: OutlinedButton(
                           key: ValueKey('dado-$index'),
-                          onPressed: () => context.read<BoardBloc>().add(
-                            SelectDiceValueEvent(state.dados[index]),
-                          ),
+                          onPressed:
+                              state.movimientoPendiente.isNotEmpty ||
+                                  state.turnoConfirmado
+                              ? null
+                              : () => context.read<BoardBloc>().add(
+                                  SelectDiceValueEvent(state.dados[index]),
+                                ),
                           style: OutlinedButton.styleFrom(
                             backgroundColor:
                                 state.selectedDiceValue == state.dados[index]
@@ -692,35 +704,16 @@ class _PanelTurno extends StatelessWidget {
                                 ),
                               ),
                               const SizedBox(height: 4),
-                              AnimatedSwitcher(
-                                duration: const Duration(milliseconds: 420),
-                                switchInCurve: Curves.easeOutBack,
-                                switchOutCurve: Curves.easeIn,
-                                transitionBuilder: (child, animation) =>
-                                    FadeTransition(
-                                      opacity: animation,
-                                      child: ScaleTransition(
-                                        scale: animation,
-                                        child: RotationTransition(
-                                          turns: Tween<double>(
-                                            begin: 0.12,
-                                            end: 0,
-                                          ).animate(animation),
-                                          child: child,
-                                        ),
-                                      ),
-                                    ),
-                                child: Text(
-                                  '${state.dados[index]}',
-                                  key: ValueKey(
-                                    'valor-dado-$index-${state.dados[index]}',
-                                  ),
-                                  style: const TextStyle(
-                                    color: Color(0xFF183F38),
-                                    fontSize: 28,
-                                    height: 1,
-                                    fontWeight: FontWeight.w900,
-                                  ),
+                              Text(
+                                '${state.dados[index]}',
+                                key: ValueKey(
+                                  'valor-dado-$index-${state.dados[index]}',
+                                ),
+                                style: const TextStyle(
+                                  color: Color(0xFF183F38),
+                                  fontSize: 28,
+                                  height: 1,
+                                  fontWeight: FontWeight.w900,
                                 ),
                               ),
                             ],
@@ -730,32 +723,70 @@ class _PanelTurno extends StatelessWidget {
                     ],
                   ],
                 ),
-                if (state.validPositions.isEmpty)
+                if (state.validPositions.isEmpty &&
+                    state.movimientoPendiente.isEmpty &&
+                    !state.turnoConfirmado)
                   const Padding(
                     padding: EdgeInsets.only(top: 8),
                     child: Text(
-                      'No hay casillas válidas. Puedes pasar el turno.',
+                      'No hay casillas válidas para los dados actuales.',
                       style: TextStyle(color: Color(0xFF52635D), fontSize: 12),
                     ),
                   ),
                 const SizedBox(height: 8),
               ],
-              if (state.listoParaJugar)
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        key: const ValueKey('boton-pasar-turno'),
-                        onPressed: state.isDiceRolled
-                            ? () => context.read<BoardBloc>().add(
-                                const SkipTurnEvent(),
-                              )
-                            : null,
-                        icon: const Icon(Icons.skip_next_rounded),
-                        label: const Text('Pasar turno'),
-                      ),
-                    ),
-                  ],
+              if (state.movimientoPendiente.isNotEmpty || state.turnoConfirmado)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: state.turnoConfirmado
+                      ? const Text(
+                          'Ya confirmaste tu número. Esperando al otro jugador...',
+                          key: ValueKey('esperando-jugador'),
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Color(0xFF52635D),
+                            fontWeight: FontWeight.w700,
+                          ),
+                        )
+                      : Row(
+                          children: [
+                            Expanded(
+                              child: FilledButton.icon(
+                                key: const ValueKey('boton-ya-puse-numero'),
+                                onPressed: state.enviandoJugada
+                                    ? null
+                                    : () => context.read<BoardBloc>().add(
+                                        const ConfirmMoveEvent(),
+                                      ),
+                                icon: state.enviandoJugada
+                                    ? const SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : const Icon(Icons.check_circle_outline),
+                                label: Text(
+                                  state.enviandoJugada
+                                      ? 'Enviando...'
+                                      : 'Ya puse mi número',
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            OutlinedButton.icon(
+                              key: const ValueKey('boton-deshacer-jugada'),
+                              onPressed: state.enviandoJugada
+                                  ? null
+                                  : () => context.read<BoardBloc>().add(
+                                      const UndoPendingMoveEvent(),
+                                    ),
+                              icon: const Icon(Icons.undo),
+                              label: const Text('Deshacer'),
+                            ),
+                          ],
+                        ),
                 ),
             ],
           ),

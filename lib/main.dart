@@ -58,38 +58,44 @@ class PantallaInicial extends StatefulWidget {
 
 class _PantallaInicialState extends State<PantallaInicial> {
   bool _mostrarMapas = false;
+  String? _playerName;
 
   @override
   Widget build(BuildContext context) {
-    if (_mostrarMapas) {
-      return PaginaPrincipal(onLogout: _cerrarSesion);
+    final playerName = _playerName;
+    if (_mostrarMapas && playerName != null) {
+      return PaginaPrincipal(playerName: playerName, onLogout: _cerrarSesion);
     }
 
     return AccesoPage(
       onOpenMaps: () => setState(() => _mostrarMapas = true),
-      onAuthenticated: () => setState(() => _mostrarMapas = true),
+      onAuthenticated: (playerName) => setState(() {
+        _playerName = playerName;
+        _mostrarMapas = true;
+      }),
     );
   }
 
   Future<void> _cerrarSesion() async {
     await AuthService().logout();
     if (mounted) {
-      setState(() => _mostrarMapas = false);
+      setState(() {
+        _mostrarMapas = false;
+        _playerName = null;
+      });
     }
   }
 }
 
-class PaginaPrincipal extends StatefulWidget {
-  const PaginaPrincipal({super.key, required this.onLogout});
+class PaginaPrincipal extends StatelessWidget {
+  const PaginaPrincipal({
+    super.key,
+    required this.onLogout,
+    required this.playerName,
+  });
 
   final Future<void> Function() onLogout;
-
-  @override
-  State<PaginaPrincipal> createState() => _PaginaPrincipalState();
-}
-
-class _PaginaPrincipalState extends State<PaginaPrincipal> {
-  bool _preparandoTablero = false;
+  final String playerName;
 
   @override
   Widget build(BuildContext context) {
@@ -97,31 +103,17 @@ class _PaginaPrincipalState extends State<PaginaPrincipal> {
     return AnimatedBuilder(
       animation: multiplayer,
       builder: (context, _) {
-        if (multiplayer.gameStarted || _preparandoTablero) {
-          return TableroPage(
-            onBackToLobby: multiplayer.gameStarted
-                ? null
-                : () => setState(() => _preparandoTablero = false),
-          );
+        if (multiplayer.gameStarted || multiplayer.allPlayersReady) {
+          return const TableroPage();
         }
         if (multiplayer.roomCode != null) {
           return LobbyPage(
             multiplayer: multiplayer,
-            onPrepareBoard: () {
-              if (!context.read<BoardBloc>().state.mapaAbierto) {
-                final mapId = multiplayer.mapId;
-                if (mapId != null) {
-                  context.read<BoardBloc>().add(BoardMapStarted(mapId));
-                }
-              }
-              setState(() => _preparandoTablero = true);
-            },
             onLeave: () async {
               try {
                 await multiplayer.leaveRoom();
                 if (context.mounted) {
                   context.read<BoardBloc>().add(const BoardMapExited());
-                  setState(() => _preparandoTablero = false);
                 }
               } catch (_) {
                 // The lobby displays the connection error from the service.
@@ -129,7 +121,7 @@ class _PaginaPrincipalState extends State<PaginaPrincipal> {
             },
           );
         }
-        return MapaSelectorPage(onLogout: widget.onLogout);
+        return MapaSelectorPage(onLogout: onLogout, playerName: playerName);
       },
     );
   }
