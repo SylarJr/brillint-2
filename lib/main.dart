@@ -62,7 +62,7 @@ class _PantallaInicialState extends State<PantallaInicial> {
   @override
   Widget build(BuildContext context) {
     if (_mostrarMapas) {
-      return const PaginaPrincipal();
+      return PaginaPrincipal(onLogout: _cerrarSesion);
     }
 
     return AccesoPage(
@@ -70,10 +70,26 @@ class _PantallaInicialState extends State<PantallaInicial> {
       onAuthenticated: () => setState(() => _mostrarMapas = true),
     );
   }
+
+  Future<void> _cerrarSesion() async {
+    await AuthService().logout();
+    if (mounted) {
+      setState(() => _mostrarMapas = false);
+    }
+  }
 }
 
-class PaginaPrincipal extends StatelessWidget {
-  const PaginaPrincipal({super.key});
+class PaginaPrincipal extends StatefulWidget {
+  const PaginaPrincipal({super.key, required this.onLogout});
+
+  final Future<void> Function() onLogout;
+
+  @override
+  State<PaginaPrincipal> createState() => _PaginaPrincipalState();
+}
+
+class _PaginaPrincipalState extends State<PaginaPrincipal> {
+  bool _preparandoTablero = false;
 
   @override
   Widget build(BuildContext context) {
@@ -81,15 +97,31 @@ class PaginaPrincipal extends StatelessWidget {
     return AnimatedBuilder(
       animation: multiplayer,
       builder: (context, _) {
-        if (multiplayer.gameStarted) return const TableroPage();
+        if (multiplayer.gameStarted || _preparandoTablero) {
+          return TableroPage(
+            onBackToLobby: multiplayer.gameStarted
+                ? null
+                : () => setState(() => _preparandoTablero = false),
+          );
+        }
         if (multiplayer.roomCode != null) {
           return LobbyPage(
             multiplayer: multiplayer,
+            onPrepareBoard: () {
+              if (!context.read<BoardBloc>().state.mapaAbierto) {
+                final mapId = multiplayer.mapId;
+                if (mapId != null) {
+                  context.read<BoardBloc>().add(BoardMapStarted(mapId));
+                }
+              }
+              setState(() => _preparandoTablero = true);
+            },
             onLeave: () async {
               try {
                 await multiplayer.leaveRoom();
                 if (context.mounted) {
                   context.read<BoardBloc>().add(const BoardMapExited());
+                  setState(() => _preparandoTablero = false);
                 }
               } catch (_) {
                 // The lobby displays the connection error from the service.
@@ -97,7 +129,7 @@ class PaginaPrincipal extends StatelessWidget {
             },
           );
         }
-        return const MapaSelectorPage();
+        return MapaSelectorPage(onLogout: widget.onLogout);
       },
     );
   }

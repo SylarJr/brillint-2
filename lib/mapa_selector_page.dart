@@ -5,7 +5,9 @@ import 'multiplayer_service.dart';
 import 'tablero_bloc.dart';
 
 class MapaSelectorPage extends StatefulWidget {
-  const MapaSelectorPage({super.key});
+  const MapaSelectorPage({super.key, required this.onLogout});
+
+  final Future<void> Function() onLogout;
 
   @override
   State<MapaSelectorPage> createState() => _MapaSelectorPageState();
@@ -22,6 +24,7 @@ class _MapaSelectorPageState extends State<MapaSelectorPage> {
   final _nombreController = TextEditingController();
   final _codigoController = TextEditingController();
   bool _enviando = false;
+  bool _cerrandoSesion = false;
 
   @override
   void dispose() {
@@ -70,6 +73,21 @@ class _MapaSelectorPageState extends State<MapaSelectorPage> {
     }
   }
 
+  Future<void> _cerrarSesion() async {
+    if (_cerrandoSesion) return;
+    setState(() => _cerrandoSesion = true);
+    try {
+      await widget.onLogout();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo cerrar sesión: $error')),
+      );
+    } finally {
+      if (mounted) setState(() => _cerrandoSesion = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final service = context.watch<MultiplayerService>();
@@ -90,15 +108,15 @@ class _MapaSelectorPageState extends State<MapaSelectorPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const Row(
+                      Row(
                         children: [
-                          Icon(
+                          const Icon(
                             Icons.grid_view_rounded,
                             color: Color(0xFF183F38),
                             size: 30,
                           ),
-                          SizedBox(width: 10),
-                          Text(
+                          const SizedBox(width: 10),
+                          const Text(
                             'BRILLANT',
                             style: TextStyle(
                               color: Color(0xFF183F38),
@@ -106,6 +124,21 @@ class _MapaSelectorPageState extends State<MapaSelectorPage> {
                               fontWeight: FontWeight.w800,
                               letterSpacing: 1.5,
                             ),
+                          ),
+                          const Spacer(),
+                          TextButton.icon(
+                            key: const ValueKey('cerrar-sesion'),
+                            onPressed: _cerrandoSesion ? null : _cerrarSesion,
+                            icon: _cerrandoSesion
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(Icons.logout),
+                            label: const Text('Cerrar sesión'),
                           ),
                         ],
                       ),
@@ -214,9 +247,7 @@ class _MapaSelectorPageState extends State<MapaSelectorPage> {
                                       vertical: 13,
                                     ),
                                     child: Text(
-                                      _enviando
-                                          ? 'Conectando...'
-                                          : mapa.nombre,
+                                      _enviando ? 'Conectando...' : mapa.nombre,
                                       textAlign: TextAlign.center,
                                       style: const TextStyle(
                                         color: Color(0xFF183F38),

@@ -21,7 +21,7 @@ class AccesoPage extends StatefulWidget {
 class _AccesoPageState extends State<AccesoPage> {
   final _usuarioController = TextEditingController();
   final _contrasenaController = TextEditingController();
-  bool _esRegistro = true;
+  bool _esRegistro = false;
   bool _enviando = false;
   String? _error;
 
@@ -141,7 +141,8 @@ class _AccesoPageState extends State<AccesoPage> {
                               autocorrect: false,
                               decoration: InputDecoration(
                                 labelText: 'Nombre de usuario',
-                                helperText: '3 a 15 letras, números o guion bajo',
+                                helperText:
+                                    '3 a 15 letras, números o guion bajo',
                                 prefixIcon: const Icon(Icons.person_outline),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
@@ -159,7 +160,7 @@ class _AccesoPageState extends State<AccesoPage> {
                               onSubmitted: (_) => _enviarCredenciales(),
                               decoration: InputDecoration(
                                 labelText: 'Contraseña',
-                                helperText: 'Entre 8 y 72 bytes UTF-8',
+                                helperText: 'Mínimo 5 caracteres',
                                 prefixIcon: const Icon(Icons.lock_outline),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
@@ -169,9 +170,7 @@ class _AccesoPageState extends State<AccesoPage> {
                             const SizedBox(height: 24),
                             FilledButton(
                               key: const ValueKey('enviar-credenciales'),
-                              onPressed: _enviando
-                                  ? null
-                                  : _enviarCredenciales,
+                              onPressed: _enviando ? null : _enviarCredenciales,
                               style: FilledButton.styleFrom(
                                 backgroundColor: const Color(0xFF286B5C),
                                 padding: const EdgeInsets.symmetric(

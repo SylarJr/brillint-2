@@ -25,7 +25,9 @@ Future<void> _startGame(
 
   if (!ready || !bloc.state.completo) return;
   if (!bloc.state.listoParaJugar) {
-    await bloc.stream.firstWhere((state) => state.listoParaJugar);
+    final readied = bloc.stream.firstWhere((state) => state.listoParaJugar);
+    bloc.add(const BoardReadyPressed());
+    await readied;
   }
 }
 
@@ -180,14 +182,21 @@ void main() {
       expect(completedState.asignaciones.values.toSet(), {1, 2, 3, 4, 5, 6});
     });
 
-    test('completar la preparación no genera dados localmente', () async {
+    test('el tablero completo espera confirmación y no genera dados', () async {
       final bloc = BoardBloc();
       addTearDown(bloc.close);
-      await _startGame(bloc);
+      await _startGame(bloc, ready: false);
 
       expect(bloc.state.asignaciones.length, 6);
       expect(bloc.state.asignaciones.values.toSet(), {1, 2, 3, 4, 5, 6});
       expect(bloc.state.completo, isTrue);
+      expect(bloc.state.preparacionCompleta, isTrue);
+      expect(bloc.state.listoParaJugar, isFalse);
+
+      final readied = bloc.stream.firstWhere((state) => state.listoParaJugar);
+      bloc.add(const BoardReadyPressed());
+      await readied;
+
       expect(bloc.state.listoParaJugar, isTrue);
       expect(bloc.state.isDiceRolled, isFalse);
     });

@@ -145,10 +145,40 @@ void main() {
       expect(tokenStorage.token, isNull);
     });
 
-    test('invalid credentials are rejected before invoking the function', () {
+    test('invalid username is rejected before invoking the function', () {
       expect(
         () => service.register('ab', 'password123'),
         throwsA(isA<AuthServiceException>()),
+      );
+      expect(invoker.bodies, isEmpty);
+    });
+
+    test('passwords require at least five characters', () async {
+      expect(
+        () => service.register('Jugador_1', 'abcd'),
+        throwsA(
+          isA<AuthServiceException>().having(
+            (error) => error.message,
+            'message',
+            'La contraseña debe tener al menos 5 caracteres.',
+          ),
+        ),
+      );
+      invoker.responses.add(_sessionResponse());
+      await service.register('Jugador_1', 'abcde');
+      expect(invoker.bodies.single['contrasena'], 'abcde');
+    });
+
+    test('passwords longer than the supported byte limit are rejected', () {
+      expect(
+        () => service.register('Jugador_1', 'a' * 73),
+        throwsA(
+          isA<AuthServiceException>().having(
+            (error) => error.message,
+            'message',
+            'La contraseña supera el tamaño máximo permitido.',
+          ),
+        ),
       );
       expect(invoker.bodies, isEmpty);
     });

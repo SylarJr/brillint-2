@@ -7,40 +7,27 @@ class LobbyPage extends StatefulWidget {
     super.key,
     required this.multiplayer,
     required this.onLeave,
+    required this.onPrepareBoard,
   });
 
   final MultiplayerService multiplayer;
   final VoidCallback onLeave;
+  final VoidCallback onPrepareBoard;
 
   @override
   State<LobbyPage> createState() => _LobbyPageState();
 }
 
 class _LobbyPageState extends State<LobbyPage> {
-  bool _sendingReady = false;
-
-  Future<void> _toggleReady(bool ready) async {
-    setState(() => _sendingReady = true);
-    try {
-      await widget.multiplayer.setReady(ready);
-    } catch (_) {
-      // The service exposes the server error in the lobby.
-    } finally {
-      if (mounted) setState(() => _sendingReady = false);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: widget.multiplayer,
       builder: (context, _) {
         final service = widget.multiplayer;
-        final readyCount = service.players.where((player) => player.ready).length;
-        final isReady = service.players
-            .where((player) => player.id == service.playerId)
-            .any((player) => player.ready);
-
+        final readyCount = service.players
+            .where((player) => player.ready)
+            .length;
         return Scaffold(
           appBar: AppBar(
             leading: IconButton(
@@ -74,7 +61,7 @@ class _LobbyPageState extends State<LobbyPage> {
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      'Comparte este código. La partida comenzará cuando al menos dos jugadores estén listos.',
+                      'Comparte este código con tus amigos. Antes de empezar, cada jugador preparará su tablero con 6 números.',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: Color(0xFF61726C), height: 1.5),
                     ),
@@ -132,17 +119,9 @@ class _LobbyPageState extends State<LobbyPage> {
                     ),
                     const SizedBox(height: 16),
                     FilledButton(
-                      key: const ValueKey('boton-listo'),
-                      onPressed: _sendingReady
-                          ? null
-                          : () => _toggleReady(!isReady),
-                      child: Text(
-                        _sendingReady
-                            ? 'Actualizando...'
-                            : isReady
-                            ? 'Ya no estoy listo'
-                            : 'Estoy listo para jugar',
-                      ),
+                      key: const ValueKey('boton-preparar-tablero'),
+                      onPressed: widget.onPrepareBoard,
+                      child: const Text('Preparar tablero'),
                     ),
                     if (service.errorMessage case final message?) ...[
                       const SizedBox(height: 12),

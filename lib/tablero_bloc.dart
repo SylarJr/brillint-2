@@ -52,6 +52,10 @@ class SkipTurnEvent extends BoardEvent {
   const SkipTurnEvent();
 }
 
+class BoardReadyPressed extends BoardEvent {
+  const BoardReadyPressed();
+}
+
 class SelectDiceValueEvent extends BoardEvent {
   const SelectDiceValueEvent(this.number);
 
@@ -69,6 +73,7 @@ class BoardState {
     this.dados = const [],
     this.validPositions = const {},
     this.isDiceRolled = false,
+    this.enviandoListo = false,
     this.selectedDiceValue,
     this.mapaSeleccionado = 0,
     this.mapaAbierto = false,
@@ -91,6 +96,7 @@ class BoardState {
   final List<int> dados;
   final Set<Point<int>> validPositions;
   final bool isDiceRolled;
+  final bool enviandoListo;
   final int? selectedDiceValue;
   final int mapaSeleccionado;
   final bool mapaAbierto;
@@ -102,6 +108,11 @@ class BoardState {
       .toList(growable: false);
 
   bool get completo => asignaciones.length == casillasMarcadas.length;
+
+  bool get preparacionCompleta =>
+      completo &&
+      asignaciones.length == numerosPermitidos.length &&
+      asignaciones.values.toSet().containsAll(numerosPermitidos);
 
   bool esCasillaMarcada(int fila, int columna) =>
       casillasMarcadas.contains((fila, columna));
@@ -244,6 +255,7 @@ class BoardState {
     List<int>? dados,
     Set<Point<int>>? validPositions,
     bool? isDiceRolled,
+    bool? enviandoListo,
     int? selectedDiceValue,
     int? mapaSeleccionado,
     bool? mapaAbierto,
@@ -266,6 +278,7 @@ class BoardState {
     dados: dados ?? this.dados,
     validPositions: validPositions ?? this.validPositions,
     isDiceRolled: isDiceRolled ?? this.isDiceRolled,
+    enviandoListo: enviandoListo ?? this.enviandoListo,
     selectedDiceValue: clearSelectedDiceValue
         ? null
         : selectedDiceValue ?? this.selectedDiceValue,
@@ -379,7 +392,6 @@ class BoardBloc extends Bloc<BoardEvent, BoardState> {
             clearMoveSource: true,
           ),
         );
-        _startGameIfSetupComplete(emit);
         return;
       }
 
@@ -412,7 +424,6 @@ class BoardBloc extends Bloc<BoardEvent, BoardState> {
             clearSelection: true,
           ),
         );
-        _startGameIfSetupComplete(emit);
         return;
       }
 
@@ -429,11 +440,30 @@ class BoardBloc extends Bloc<BoardEvent, BoardState> {
           clearSelection: true,
         ),
       );
-      _startGameIfSetupComplete(emit);
+    });
+
+    on<BoardReadyPressed>((event, emit) async {
+      if (!state.preparacionCompleta ||
+          state.listoParaJugar ||
+          state.enviandoListo) {
+        return;
+      }
+
+      emit(state.copyWith(enviandoListo: true, clearSelection: true));
+      try {
+        await _multiplayer?.submitInitialBoard(state.asignaciones);
+        emit(state.copyWith(listoParaJugar: true, enviandoListo: false));
+      } catch (_) {
+        emit(state.copyWith(enviandoListo: false));
+      }
     });
 
     on<SelectDiceValueEvent>((event, emit) {
-      if (!state.isDiceRolled || !state.dados.contains(event.number)) return;
+      if (_multiplayer?.gameStarted != true ||
+          !state.isDiceRolled ||
+          !state.dados.contains(event.number)) {
+        return;
+      }
       emit(
         state.copyWith(
           selectedDiceValue: event.number,
@@ -444,6 +474,7 @@ class BoardBloc extends Bloc<BoardEvent, BoardState> {
 
     on<PlaceNumberEvent>((event, emit) async {
       if (!state.listoParaJugar ||
+          _multiplayer?.gameStarted != true ||
           !state.isDiceRolled ||
           state.selectedDiceValue != event.number ||
           !state
@@ -460,7 +491,11 @@ class BoardBloc extends Bloc<BoardEvent, BoardState> {
     });
 
     on<SkipTurnEvent>((event, emit) async {
-      if (!state.listoParaJugar || !state.isDiceRolled) return;
+      if (!state.listoParaJugar ||
+          _multiplayer?.gameStarted != true ||
+          !state.isDiceRolled) {
+        return;
+      }
       try {
         await _multiplayer?.skipTurn();
       } catch (_) {
@@ -471,7 +506,9 @@ class BoardBloc extends Bloc<BoardEvent, BoardState> {
     on<_ServerBoardUpdated>((event, emit) {
       emit(
         state.copyWith(
-          asignaciones: Map.unmodifiable(event.assignments),
+          asignaciones: event.assignments == null
+              ? null
+              : Map.unmodifiable(event.assignments!),
           dados: event.dice,
           isDiceRolled: event.dice.isNotEmpty,
           validPositions: const {},
@@ -485,30 +522,25 @@ class BoardBloc extends Bloc<BoardEvent, BoardState> {
     }
   }
 
-  void _startGameIfSetupComplete(Emitter<BoardState> emit) {
-    if (!state.completo || state.listoParaJugar) return;
-    emit(state.copyWith(listoParaJugar: true, clearSelection: true));
-    _submitInitialBoard(state.asignaciones);
-  }
-
-  Future<void> _submitInitialBoard(Map<(int, int), int> assignments) async {
-    try {
-      await _multiplayer?.submitInitialBoard(assignments);
-    } catch (_) {
-      // The service exposes the server error to the player.
-    }
-  }
-
   void _onMultiplayerChanged() {
     if (_multiplayer == null || isClosed) return;
     if (!_multiplayer.gameStarted) return;
-    if (mapEquals(_lastServerAssignments, _multiplayer.assignments) &&
-        listEquals(_lastServerDice, _multiplayer.dice)) {
+    final assignmentsChanged = !mapEquals(
+      _lastServerAssignments,
+      _multiplayer.assignments,
+    );
+    final diceChanged = !listEquals(_lastServerDice, _multiplayer.dice);
+    if (!assignmentsChanged && !diceChanged) {
       return;
     }
     _lastServerAssignments = Map.unmodifiable(_multiplayer.assignments);
     _lastServerDice = List.unmodifiable(_multiplayer.dice);
-    add(_ServerBoardUpdated(_multiplayer.assignments, _multiplayer.dice));
+    add(
+      _ServerBoardUpdated(
+        assignmentsChanged ? _multiplayer.assignments : null,
+        _multiplayer.dice,
+      ),
+    );
   }
 
   final MultiplayerService? _multiplayer;
@@ -525,6 +557,6 @@ class BoardBloc extends Bloc<BoardEvent, BoardState> {
 class _ServerBoardUpdated extends BoardEvent {
   const _ServerBoardUpdated(this.assignments, this.dice);
 
-  final Map<(int, int), int> assignments;
+  final Map<(int, int), int>? assignments;
   final List<int> dice;
 }

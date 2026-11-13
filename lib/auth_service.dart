@@ -75,8 +75,7 @@ class SecureSessionTokenStorage implements SessionTokenStorage {
   final FlutterSecureStorage _storage;
 
   @override
-  Future<void> save(String token) =>
-      _storage.write(key: _key, value: token);
+  Future<void> save(String token) => _storage.write(key: _key, value: token);
 
   @override
   Future<String?> read() => _storage.read(key: _key);
@@ -86,11 +85,10 @@ class SecureSessionTokenStorage implements SessionTokenStorage {
 }
 
 class AuthService {
-  AuthService({
-    AuthFunctionInvoker? invoker,
-    SessionTokenStorage? tokenStorage,
-  }) : _invoker = invoker ?? _SupabaseAuthFunctionInvoker(Supabase.instance.client),
-       _tokenStorage = tokenStorage ?? SecureSessionTokenStorage();
+  AuthService({AuthFunctionInvoker? invoker, SessionTokenStorage? tokenStorage})
+    : _invoker =
+          invoker ?? _SupabaseAuthFunctionInvoker(Supabase.instance.client),
+      _tokenStorage = tokenStorage ?? SecureSessionTokenStorage();
 
   final AuthFunctionInvoker _invoker;
   final SessionTokenStorage _tokenStorage;
@@ -156,7 +154,10 @@ class AuthService {
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw AuthServiceException(
           statusCode: response.statusCode,
-          message: _messageFromData(response.data, 'La solicitud fue rechazada.'),
+          message: _messageFromData(
+            response.data,
+            'La solicitud fue rechazada.',
+          ),
         );
       }
       return response;
@@ -197,15 +198,19 @@ class AuthService {
   static void _validateCredentials(String usuarioName, String contrasena) {
     if (!RegExp(r'^[A-Za-z0-9_]{3,15}$').hasMatch(usuarioName)) {
       throw const AuthServiceException(
-        message:
-            'El nombre debe tener entre 3 y 15 caracteres: letras ASCII, números o guion bajo.',
+        message: 'El nombre debe tener entre 3 y 15 caracteres: letras ASCII, números o guion bajo.',
       );
     }
 
-    final passwordLength = utf8.encode(contrasena).length;
-    if (passwordLength < 8 || passwordLength > 72) {
+    if (contrasena.runes.length < 5) {
       throw const AuthServiceException(
-        message: 'La contraseña debe tener entre 8 y 72 bytes UTF-8.',
+        message: 'La contraseña debe tener al menos 5 caracteres.',
+      );
+    }
+
+    if (utf8.encode(contrasena).length > 72) {
+      throw const AuthServiceException(
+        message: 'La contraseña supera el tamaño máximo permitido.',
       );
     }
   }

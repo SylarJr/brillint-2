@@ -5,11 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 class RoomPlayer {
-  const RoomPlayer({
-    required this.id,
-    required this.name,
-    required this.ready,
-  });
+  const RoomPlayer({required this.id, required this.name, required this.ready});
 
   final String id;
   final String name;
@@ -111,20 +107,15 @@ class MultiplayerService extends ChangeNotifier {
     _applyRoomData(data);
   }
 
-  Future<void> setReady(bool ready) async {
-    await _request('set_ready', {'ready': ready});
-  }
-
   Future<void> submitInitialBoard(
     Map<(int, int), int> initialAssignments,
   ) async {
     final response = await _request('submit_initial_board', {
       'assignments': _serializeAssignments(initialAssignments),
+      'ready': true,
     });
     if (response['assignments'] is List) {
       _applyOptionalBoard(response);
-    } else {
-      assignments = Map.unmodifiable(initialAssignments);
     }
     notifyListeners();
   }
@@ -214,7 +205,9 @@ class MultiplayerService extends ChangeNotifier {
     try {
       final decoded = jsonDecode(rawMessage as String);
       if (decoded is! Map<String, dynamic>) {
-        throw const FormatException('El mensaje del servidor no es un objeto JSON.');
+        throw const FormatException(
+          'El mensaje del servidor no es un objeto JSON.',
+        );
       }
 
       final type = decoded['type'];
@@ -241,6 +234,7 @@ class MultiplayerService extends ChangeNotifier {
           _applyRoomData(data);
         case 'game_started':
           gameStarted = true;
+          _applyOptionalBoard(data);
           notifyListeners();
         case 'dice_rolled':
           dice = _intList(data['values'], 'values');

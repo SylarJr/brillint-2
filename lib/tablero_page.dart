@@ -8,10 +8,13 @@ import 'tablero_bloc.dart';
 import 'tipo.dart';
 
 class TableroPage extends StatelessWidget {
-  const TableroPage({super.key});
+  const TableroPage({super.key, this.onBackToLobby});
+
+  final VoidCallback? onBackToLobby;
 
   @override
   Widget build(BuildContext context) {
+    final multiplayer = context.watch<MultiplayerService>();
     return Scaffold(
       body: SafeArea(
         child: SingleChildScrollView(
@@ -49,17 +52,31 @@ class TableroPage extends StatelessWidget {
                       ),
                       const Spacer(),
                       BlocBuilder<BoardBloc, BoardState>(
-                        builder: (context, state) =>
-                            state.asignaciones.isEmpty && !state.listoParaJugar
-                            ? OutlinedButton.icon(
-                                key: const ValueKey('salir-mapa'),
-                                onPressed: () => context.read<BoardBloc>().add(
-                                  const BoardMapExited(),
-                                ),
-                                icon: const Icon(Icons.arrow_back_rounded),
-                                label: const Text('Salir del mapa'),
-                              )
-                            : const SizedBox.shrink(),
+                        builder: (context, state) {
+                          if (onBackToLobby != null &&
+                              !multiplayer.gameStarted &&
+                              !state.listoParaJugar) {
+                            return OutlinedButton.icon(
+                              key: const ValueKey('volver-lobby'),
+                              onPressed: onBackToLobby,
+                              icon: const Icon(Icons.arrow_back_rounded),
+                              label: const Text('Volver al lobby'),
+                            );
+                          }
+                          if (multiplayer.gameStarted &&
+                              state.asignaciones.isEmpty &&
+                              !state.listoParaJugar) {
+                            return OutlinedButton.icon(
+                              key: const ValueKey('salir-mapa'),
+                              onPressed: () => context.read<BoardBloc>().add(
+                                const BoardMapExited(),
+                              ),
+                              icon: const Icon(Icons.arrow_back_rounded),
+                              label: const Text('Salir del mapa'),
+                            );
+                          }
+                          return const SizedBox.shrink();
+                        },
                       ),
                     ],
                   ),
@@ -110,11 +127,13 @@ String _nombreTipo(Tipo tipo) => switch (tipo) {
   TipoNaranjaInferior() => 'NARANJA 1-3',
   _ => tipo.runtimeType.toString().replaceFirst('Tipo', '').toUpperCase(),
 };
+
 class _ContenidoTablero extends StatelessWidget {
   const _ContenidoTablero();
 
   @override
   Widget build(BuildContext context) {
+    final service = context.watch<MultiplayerService>();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -132,7 +151,7 @@ class _ContenidoTablero extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Text(
-                    'Listo para jugar',
+                    'Confirmaste que estás listo. La partida comenzará cuando todos estén listos.',
                     style: TextStyle(
                       color: Color(0xFF183F38),
                       fontWeight: FontWeight.w800,
@@ -141,13 +160,58 @@ class _ContenidoTablero extends StatelessWidget {
                 )
               : const SizedBox.shrink(),
         ),
+        if (service.roomCode != null && !service.gameStarted)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 14),
+            child: Text(
+              'Sala ${service.roomCode} · ${service.players.where((player) => player.ready).length} de ${service.players.length} jugadores listos',
+              key: const ValueKey('estado-preparacion-sala'),
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Color(0xFF52635D),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
         const SizedBox(height: 20),
         const _MatrizTablero(),
         const SizedBox(height: 16),
         const _PanelNumeros(),
         BlocBuilder<BoardBloc, BoardState>(
           builder: (context, state) {
-            if (state.listoParaJugar) return const SizedBox.shrink();
+            if (!state.preparacionCompleta || state.listoParaJugar) {
+              return const SizedBox.shrink();
+            }
+            return Padding(
+              padding: const EdgeInsets.only(top: 18),
+              child: FilledButton.icon(
+                key: const ValueKey('boton-estoy-listo'),
+                onPressed: state.enviandoListo
+                    ? null
+                    : () => context.read<BoardBloc>().add(
+                        const BoardReadyPressed(),
+                      ),
+                icon: state.enviandoListo
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.check_circle_outline),
+                label: Text(
+                  state.enviandoListo
+                      ? 'Enviando...'
+                      : 'Estoy listo para jugar',
+                ),
+              ),
+            );
+          },
+        ),
+        BlocBuilder<BoardBloc, BoardState>(
+          builder: (context, state) {
+            if (state.listoParaJugar || state.completo) {
+              return const SizedBox.shrink();
+            }
 
             final casilla = state.casillaSeleccionada;
             final tipo = casilla == null
@@ -526,6 +590,7 @@ class _PanelTurno extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final gameStarted = context.watch<MultiplayerService>().gameStarted;
     return BlocBuilder<BoardBloc, BoardState>(
       builder: (context, state) {
         return Container(
@@ -567,17 +632,19 @@ class _PanelTurno extends StatelessWidget {
                 ),
               if (!state.isDiceRolled) ...[
                 if (state.listoParaJugar)
-                  const Row(
+                  Row(
                     children: [
-                      SizedBox(
+                      const SizedBox(
                         width: 15,
                         height: 15,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       ),
-                      SizedBox(width: 9),
+                      const SizedBox(width: 9),
                       Text(
-                        'Esperando la tirada del servidor...',
-                        style: TextStyle(
+                        gameStarted
+                            ? 'Esperando los dados del servidor...'
+                            : 'Esperando a que todos estén listos...',
+                        style: const TextStyle(
                           color: Color(0xFF52635D),
                           fontSize: 12,
                         ),
@@ -750,9 +817,7 @@ class _PanelPuntuacion extends StatelessWidget {
                     padding: const EdgeInsets.only(bottom: 10),
                     child: Row(
                       children: [
-                        Expanded(
-                          child: Text(score.playerName),
-                        ),
+                        Expanded(child: Text(score.playerName)),
                         Text(
                           '${score.total}',
                           style: const TextStyle(
