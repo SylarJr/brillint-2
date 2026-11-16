@@ -129,7 +129,7 @@ class _MapaSelectorPageState extends State<MapaSelectorPage> {
                             ),
                           ),
                           const Spacer(),
-                          if (compact)
+                          if (columnas == 1)
                             IconButton(
                               key: const ValueKey('cerrar-sesion'),
                               tooltip: 'Cerrar sesión',
@@ -257,7 +257,7 @@ class _MapaSelectorPageState extends State<MapaSelectorPage> {
                           crossAxisCount: columnas,
                           crossAxisSpacing: 18,
                           mainAxisSpacing: 18,
-                          childAspectRatio: columnas == 1 ? 1.3 : 0.92,
+                          childAspectRatio: 0.92,
                         ),
                         itemBuilder: (context, index) {
                           final mapa = BoardState.mapas[index];
@@ -277,7 +277,7 @@ class _MapaSelectorPageState extends State<MapaSelectorPage> {
                                   Expanded(
                                     child: Image.asset(
                                       _imagenes[index],
-                                      fit: BoxFit.cover,
+                                      fit: BoxFit.contain,
                                     ),
                                   ),
                                   Padding(
