@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -80,7 +81,7 @@ class TableroPage extends StatelessWidget {
                           }
                           if (multiplayer.gameStarted) {
                             return _buildExitButton(
-                              compact: compact,
+                              compact: compact || viewportWidth < 600,
                               key: const ValueKey('salir-partida'),
                               label: 'Salir de la partida',
                               onPressed: () => _confirmLeaveGame(context),
@@ -92,15 +93,8 @@ class TableroPage extends StatelessWidget {
                     ],
                   ),
                   SizedBox(height: compact ? 18 : 30),
-                  Text(
-                    'Mapa de colores',
-                    style: TextStyle(
-                      color: const Color(0xFF18332D),
-                      fontSize: compact ? 24 : 28,
-                      fontWeight: FontWeight.w800,
-                      height: 1.1,
-                    ),
-                  ),
+                  if (multiplayer.gameStarted)
+                    _PanelPuntuacion(compact: viewportWidth < 800),
                   if (multiplayer.roomNotice case final message?) ...[
                     const SizedBox(height: 12),
                     RoomNoticeBanner(message: message),
@@ -121,8 +115,18 @@ class TableroPage extends StatelessWidget {
                         );
                       }
 
-                      return const Column(
-                        children: [tablero, SizedBox(height: 24), panelLateral],
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const _MultiplayerErrorBanner(),
+                          const _PanelTurno(),
+                          const SizedBox(height: 18),
+                          tablero,
+                          if (multiplayer.gameStarted) ...[
+                            const SizedBox(height: 24),
+                            const _PanelReglasMapa(collapsible: true),
+                          ],
+                        ],
                       );
                     },
                   ),
@@ -205,27 +209,9 @@ class _ContenidoTablero extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         BlocBuilder<BoardBloc, BoardState>(
-          builder: (context, state) => state.listoParaJugar
-              ? Container(
-                  key: const ValueKey('banner-listo'),
-                  margin: const EdgeInsets.only(top: 16),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 15,
-                    vertical: 12,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE0F0E8),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Text(
-                    'Confirmaste que estás listo. La partida comenzará cuando todos estén listos.',
-                    style: TextStyle(
-                      color: Color(0xFF183F38),
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                )
-              : const SizedBox.shrink(),
+          builder: (context, state) => _ReadyConfirmationBanner(
+            visible: state.listoParaJugar && !service.gameStarted,
+          ),
         ),
         if (service.roomCode != null && !service.gameStarted)
           Padding(
@@ -569,6 +555,70 @@ class _MarcadorPendiente extends StatelessWidget {
   }
 }
 
+class _ReadyConfirmationBanner extends StatefulWidget {
+  const _ReadyConfirmationBanner({required this.visible});
+
+  final bool visible;
+
+  @override
+  State<_ReadyConfirmationBanner> createState() =>
+      _ReadyConfirmationBannerState();
+}
+
+class _ReadyConfirmationBannerState extends State<_ReadyConfirmationBanner> {
+  Timer? _timer;
+  late bool _showBanner;
+
+  @override
+  void initState() {
+    super.initState();
+    _showBanner = widget.visible;
+    if (_showBanner) _startTimer();
+  }
+
+  @override
+  void didUpdateWidget(covariant _ReadyConfirmationBanner oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.visible == widget.visible) return;
+
+    _timer?.cancel();
+    _showBanner = widget.visible;
+    if (_showBanner) _startTimer();
+  }
+
+  void _startTimer() {
+    _timer = Timer(const Duration(seconds: 20), () {
+      if (mounted) setState(() => _showBanner = false);
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => _showBanner
+      ? Container(
+          key: const ValueKey('banner-listo'),
+          margin: const EdgeInsets.only(top: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFE0F0E8),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: const Text(
+            'Confirmaste que estás listo. La partida comenzará cuando todos estén listos.',
+            style: TextStyle(
+              color: Color(0xFF183F38),
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        )
+      : const SizedBox.shrink();
+}
+
 class _PanelNumeros extends StatelessWidget {
   const _PanelNumeros();
 
@@ -692,15 +742,15 @@ class _PanelLateral extends StatelessWidget {
           const SizedBox(height: 18),
         ],
         const _PanelTurno(),
-        const SizedBox(height: 18),
-        const _PanelPuntuacion(),
       ],
     );
   }
 }
 
 class _PanelReglasMapa extends StatelessWidget {
-  const _PanelReglasMapa();
+  const _PanelReglasMapa({this.collapsible = false});
+
+  final bool collapsible;
 
   @override
   Widget build(BuildContext context) => BlocBuilder<BoardBloc, BoardState>(
@@ -728,66 +778,90 @@ class _PanelReglasMapa extends StatelessWidget {
             ),
           ],
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'REGLAS DE LOS COLORES',
-              style: TextStyle(
-                color: Color(0xFF52635D),
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 1,
-              ),
-            ),
-            const SizedBox(height: 12),
-            for (var index = 0; index < rules.length; index++) ...[
-              if (index > 0) const SizedBox(height: 12),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 14,
-                    height: 14,
-                    margin: const EdgeInsets.only(top: 2),
-                    decoration: BoxDecoration(
-                      color: rules[index].color,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: const Color(0xFFBCC9C3)),
+        child: collapsible
+            ? Material(
+                color: Colors.transparent,
+                child: ExpansionTile(
+                  key: const ValueKey('reglas-colores-expandible'),
+                  initiallyExpanded: false,
+                  tilePadding: EdgeInsets.zero,
+                  childrenPadding: EdgeInsets.zero,
+                  title: const Text(
+                    'REGLAS DE LOS COLORES',
+                    style: TextStyle(
+                      color: Color(0xFF52635D),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1,
                     ),
                   ),
-                  const SizedBox(width: 9),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _nombreTipo(rules[index]),
-                          style: const TextStyle(
-                            color: Color(0xFF18332D),
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          rules[index].descripcion,
-                          style: const TextStyle(
-                            color: Color(0xFF61726C),
-                            fontSize: 11,
-                            height: 1.3,
-                          ),
-                        ),
-                      ],
+                  children: [_listaReglas(rules)],
+                ),
+              )
+            : _listaReglas(rules, incluirTitulo: true),
+      );
+    },
+  );
+
+  Widget _listaReglas(List<Tipo> rules, {bool incluirTitulo = false}) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      if (incluirTitulo) ...[
+        const Text(
+          'REGLAS DE LOS COLORES',
+          style: TextStyle(
+            color: Color(0xFF52635D),
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1,
+          ),
+        ),
+        const SizedBox(height: 12),
+      ],
+      for (var index = 0; index < rules.length; index++) ...[
+        if (index > 0) const SizedBox(height: 12),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 14,
+              height: 14,
+              margin: const EdgeInsets.only(top: 2),
+              decoration: BoxDecoration(
+                color: rules[index].color,
+                shape: BoxShape.circle,
+                border: Border.all(color: const Color(0xFFBCC9C3)),
+              ),
+            ),
+            const SizedBox(width: 9),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _nombreTipo(rules[index]),
+                    style: const TextStyle(
+                      color: Color(0xFF18332D),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    rules[index].descripcion,
+                    style: const TextStyle(
+                      color: Color(0xFF61726C),
+                      fontSize: 11,
+                      height: 1.3,
                     ),
                   ),
                 ],
               ),
-            ],
+            ),
           ],
         ),
-      );
-    },
+      ],
+    ],
   );
 }
 
@@ -1017,7 +1091,9 @@ class _PanelTurno extends StatelessWidget {
 }
 
 class _PanelPuntuacion extends StatelessWidget {
-  const _PanelPuntuacion();
+  const _PanelPuntuacion({this.compact = false});
+
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -1080,7 +1156,7 @@ class _PanelPuntuacion extends StatelessWidget {
                       ],
                     ),
                   ),
-              if (service.zoneWinners.isNotEmpty) ...[
+              if (!compact && service.zoneWinners.isNotEmpty) ...[
                 const Divider(height: 24),
                 const Text(
                   'PRIMEROS EN CADA ZONA',

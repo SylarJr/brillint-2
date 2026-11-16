@@ -331,7 +331,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(service.initialAssignments, isNull);
     expect(service.gameStarted, isFalse);
-    expect(find.text('Mapa de colores'), findsOneWidget);
+    expect(find.text('Mapa de colores'), findsNothing);
     expect(find.byKey(const ValueKey('boton-estoy-listo')), findsNothing);
     expect(find.byKey(const ValueKey('volver-lobby')), findsNothing);
   });
@@ -406,6 +406,11 @@ void main() {
     expect(service.gameStarted, isFalse);
     expect(find.text('Estoy listo para jugar'), findsNothing);
     expect(find.text('Esperando a que todos estén listos...'), findsOneWidget);
+    expect(find.byKey(const ValueKey('banner-listo')), findsOneWidget);
+    await tester.pump(const Duration(seconds: 19));
+    expect(find.byKey(const ValueKey('banner-listo')), findsOneWidget);
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.byKey(const ValueKey('banner-listo')), findsNothing);
   });
 
   testWidgets('confirma una jugada, permite deshacer y espera al servidor', (
@@ -477,6 +482,11 @@ void main() {
   testWidgets('muestra reglas del mapa y devuelve al ganador al lobby', (
     WidgetTester tester,
   ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     final service = _FakeMultiplayerService();
     await _entrarAlMapa(tester, mapa: 3, multiplayer: service);
     final bloc = tester
@@ -488,8 +498,17 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('panel-reglas-colores')), findsOneWidget);
+    expect(find.text('NARANJA 4-6'), findsNothing);
+    final rulesHeading = find.text('REGLAS DE LOS COLORES');
+    await tester.ensureVisible(rulesHeading);
+    await tester.tap(rulesHeading);
+    await tester.pumpAndSettle();
     expect(find.text('NARANJA 4-6'), findsOneWidget);
     expect(find.text('NARANJA 1-3'), findsOneWidget);
+    await tester.ensureVisible(rulesHeading);
+    await tester.tap(rulesHeading);
+    await tester.pumpAndSettle();
+    expect(find.text('NARANJA 4-6'), findsNothing);
 
     service.opponentLeft();
     await tester.pumpAndSettle();
@@ -524,7 +543,7 @@ void main() {
     expect(find.byKey(const ValueKey('mapa-card-0')), findsOneWidget);
   });
 
-  testWidgets('muestra el panel de puntuación a la derecha en escritorio', (
+  testWidgets('muestra las puntuaciones arriba y los dados a la derecha', (
     WidgetTester tester,
   ) async {
     tester.view.physicalSize = const Size(1200, 900);
@@ -543,12 +562,17 @@ void main() {
       find.byKey(const ValueKey('panel-puntuacion')),
     );
     expect(dados.left, greaterThan(tablero.right));
-    expect(puntuacion.left, greaterThan(tablero.right));
+    expect(puntuacion.bottom, lessThan(tablero.top));
   });
 
   testWidgets('los dados y puntuaciones visibles provienen del servidor', (
     WidgetTester tester,
   ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     final service = _FakeMultiplayerService();
     await _entrarAlMapa(tester, multiplayer: service);
     service.startGame();
@@ -557,6 +581,7 @@ void main() {
     expect(find.byKey(const ValueKey('salir-partida')), findsOneWidget);
     expect(find.byKey(const ValueKey('panel-puntuacion')), findsOneWidget);
     expect(find.byKey(const ValueKey('panel-dados')), findsOneWidget);
+    expect(find.text('Mapa de colores'), findsNothing);
     expect(find.byKey(const ValueKey('marcador-pendiente')), findsNWidgets(6));
     expect(find.byKey(const ValueKey('celda-0-0')), findsOneWidget);
     expect(find.byKey(const ValueKey('celda-6-6')), findsOneWidget);
@@ -573,6 +598,15 @@ void main() {
         PlayerScore(playerId: 'player-1', playerName: 'Ana', total: 15),
       ]
       ..dice = const [2, 5]
+      ..zoneWinners = List.generate(
+        12,
+        (index) => ZoneWinner(
+          zoneId: 'zona-$index',
+          playerName: 'Ana',
+          place: 1,
+          points: 5,
+        ),
+      )
       ..notifyListeners();
     await tester.pumpAndSettle();
 
@@ -584,6 +618,15 @@ void main() {
     expect(find.text('15'), findsOneWidget);
     expect(find.byType(AnimatedSwitcher), findsNothing);
     expect(find.byKey(const ValueKey('puntuacion-total')), findsNothing);
+
+    final scorePanel = tester.getRect(
+      find.byKey(const ValueKey('panel-puntuacion')),
+    );
+    final dicePanel = tester.getRect(find.byKey(const ValueKey('panel-dados')));
+    final board = tester.getRect(find.byType(AspectRatio).first);
+    expect(scorePanel.bottom, lessThan(dicePanel.top));
+    expect(dicePanel.bottom, lessThan(board.top));
+    expect(dicePanel.bottom, lessThan(844));
   });
 }
 
