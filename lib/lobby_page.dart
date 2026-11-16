@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'multiplayer_service.dart';
+import 'room_notice_banner.dart';
 
 class LobbyPage extends StatefulWidget {
   const LobbyPage({
@@ -81,6 +82,10 @@ class _LobbyPageState extends State<LobbyPage> {
                       textAlign: TextAlign.center,
                       style: TextStyle(color: Color(0xFF61726C), height: 1.5),
                     ),
+                    if (service.roomNotice case final message?) ...[
+                      const SizedBox(height: 12),
+                      RoomNoticeBanner(message: message),
+                    ],
                     const SizedBox(height: 22),
                     Card(
                       child: Padding(

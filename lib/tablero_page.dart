@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'multiplayer_service.dart';
+import 'room_notice_banner.dart';
 import 'tablero_bloc.dart';
 import 'tipo.dart';
 
@@ -71,22 +72,18 @@ class TableroPage extends StatelessWidget {
                               !multiplayer.gameStarted &&
                               !state.listoParaJugar) {
                             return _buildExitButton(
-                              compact: compact,
+                              compact: compact || viewportWidth < 600,
                               key: const ValueKey('volver-lobby'),
                               label: 'Volver al lobby',
                               onPressed: onBackToLobby!,
                             );
                           }
-                          if (multiplayer.gameStarted &&
-                              state.asignaciones.isEmpty &&
-                              !state.listoParaJugar) {
+                          if (multiplayer.gameStarted) {
                             return _buildExitButton(
                               compact: compact,
-                              key: const ValueKey('salir-mapa'),
-                              label: 'Salir del mapa',
-                              onPressed: () => context.read<BoardBloc>().add(
-                                const BoardMapExited(),
-                              ),
+                              key: const ValueKey('salir-partida'),
+                              label: 'Salir de la partida',
+                              onPressed: () => _confirmLeaveGame(context),
                             );
                           }
                           return const SizedBox.shrink();
@@ -104,6 +101,10 @@ class TableroPage extends StatelessWidget {
                       height: 1.1,
                     ),
                   ),
+                  if (multiplayer.roomNotice case final message?) ...[
+                    const SizedBox(height: 12),
+                    RoomNoticeBanner(message: message),
+                  ],
                   const SizedBox(height: 20),
                   LayoutBuilder(
                     builder: (context, constraints) {
@@ -131,6 +132,36 @@ class TableroPage extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+Future<void> _confirmLeaveGame(BuildContext context) async {
+  final service = context.read<MultiplayerService>();
+  final shouldLeave = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Salir de la partida'),
+      content: const Text('Si sales, el otro jugador podría ganar la partida.'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('Seguir jugando'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, true),
+          child: const Text('Salir'),
+        ),
+      ],
+    ),
+  );
+  if (shouldLeave != true || !context.mounted) return;
+  try {
+    await service.leaveRoom();
+  } catch (error) {
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('No se pudo salir de la partida: $error')),
     );
   }
 }
@@ -651,16 +682,113 @@ class _PanelLateral extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Column(
+    final gameStarted = context.watch<MultiplayerService>().gameStarted;
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _MultiplayerErrorBanner(),
-        _PanelTurno(),
-        SizedBox(height: 18),
-        _PanelPuntuacion(),
+        const _MultiplayerErrorBanner(),
+        if (gameStarted) ...[
+          const _PanelReglasMapa(),
+          const SizedBox(height: 18),
+        ],
+        const _PanelTurno(),
+        const SizedBox(height: 18),
+        const _PanelPuntuacion(),
       ],
     );
   }
+}
+
+class _PanelReglasMapa extends StatelessWidget {
+  const _PanelReglasMapa();
+
+  @override
+  Widget build(BuildContext context) => BlocBuilder<BoardBloc, BoardState>(
+    builder: (context, state) {
+      final seenTypes = <Type>{};
+      final rules = <Tipo>[];
+      for (final row in state.matriz) {
+        for (final tipo in row) {
+          if (seenTypes.add(tipo.runtimeType)) rules.add(tipo);
+        }
+      }
+
+      return Container(
+        key: const ValueKey('panel-reglas-colores'),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFE1E9E4)),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x10183F38),
+              blurRadius: 18,
+              offset: Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'REGLAS DE LOS COLORES',
+              style: TextStyle(
+                color: Color(0xFF52635D),
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1,
+              ),
+            ),
+            const SizedBox(height: 12),
+            for (var index = 0; index < rules.length; index++) ...[
+              if (index > 0) const SizedBox(height: 12),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 14,
+                    height: 14,
+                    margin: const EdgeInsets.only(top: 2),
+                    decoration: BoxDecoration(
+                      color: rules[index].color,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: const Color(0xFFBCC9C3)),
+                    ),
+                  ),
+                  const SizedBox(width: 9),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _nombreTipo(rules[index]),
+                          style: const TextStyle(
+                            color: Color(0xFF18332D),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          rules[index].descripcion,
+                          style: const TextStyle(
+                            color: Color(0xFF61726C),
+                            fontSize: 11,
+                            height: 1.3,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      );
+    },
+  );
 }
 
 class _MultiplayerErrorBanner extends StatelessWidget {

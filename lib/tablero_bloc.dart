@@ -318,6 +318,7 @@ class BoardState {
 class BoardBloc extends Bloc<BoardEvent, BoardState> {
   BoardBloc({MultiplayerService? multiplayer})
     : _multiplayer = multiplayer,
+      _lastServerGameStarted = multiplayer?.gameStarted ?? false,
       _lastServerAssignments = multiplayer?.assignments ?? const {},
       _lastServerDice = multiplayer?.dice ?? const [],
       _lastServerDiceRoll = multiplayer?.diceRollId ?? 0,
@@ -632,7 +633,20 @@ class BoardBloc extends Bloc<BoardEvent, BoardState> {
 
   void _onMultiplayerChanged() {
     if (_multiplayer == null || isClosed) return;
-    if (!_multiplayer.gameStarted) return;
+    final gameStarted = _multiplayer.gameStarted;
+    final gameEnded = _lastServerGameStarted && !gameStarted;
+    _lastServerGameStarted = gameStarted;
+    if (gameEnded) {
+      final mapId = _multiplayer.mapId;
+      if (_multiplayer.roomCode != null && mapId != null) {
+        add(BoardMapStarted(mapId));
+      }
+      _lastServerAssignments = Map.unmodifiable(_multiplayer.assignments);
+      _lastServerDice = List.unmodifiable(_multiplayer.dice);
+      _lastServerDiceRoll = _multiplayer.diceRollId;
+      return;
+    }
+    if (!gameStarted) return;
     final assignmentsChanged = !mapEquals(
       _lastServerAssignments,
       _multiplayer.assignments,
@@ -655,6 +669,7 @@ class BoardBloc extends Bloc<BoardEvent, BoardState> {
   }
 
   final MultiplayerService? _multiplayer;
+  bool _lastServerGameStarted;
   Map<(int, int), int> _lastServerAssignments;
   List<int> _lastServerDice;
   int _lastServerDiceRoll;

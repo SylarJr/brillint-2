@@ -104,6 +104,132 @@ void main() {
       expect(service.errorMessage, isNull);
     },
   );
+
+  test(
+    'applies own board states and handles a winner after another player leaves',
+    () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      late WebSocket socket;
+      server.transform(WebSocketTransformer()).listen((connection) {
+        socket = connection;
+        connection.listen((message) {
+          final request = jsonDecode(message as String) as Map<String, dynamic>;
+          connection.add(
+            jsonEncode({
+              'type': 'response',
+              'requestId': request['requestId'],
+              'ok': true,
+              'data': {
+                'code': 'ABC123',
+                'playerId': 'player-1',
+                'mapId': 0,
+                'players': [
+                  {'id': 'player-1', 'name': 'Ana', 'ready': true},
+                  {'id': 'player-2', 'name': 'Luis', 'ready': true},
+                ],
+                'gameStarted': true,
+              },
+            }),
+          );
+        });
+      });
+
+      final service = MultiplayerService(
+        serverUrl: 'ws://127.0.0.1:${server.port}',
+      );
+      addTearDown(() async {
+        service.dispose();
+        await server.close(force: true);
+      });
+      await service.createRoom(mapId: 0, playerName: 'Ana');
+
+      final otherPlayerBoard = _waitForNextNotification(service);
+      socket.add(
+        jsonEncode({
+          'type': 'board_state',
+          'data': {
+            'playerId': 'player-2',
+            'assignments': [
+              {'row': 3, 'column': 2, 'value': 1},
+            ],
+          },
+        }),
+      );
+      await otherPlayerBoard;
+      expect(service.assignments, isEmpty);
+
+      final ownAssignments = {(3, 2): 2};
+      final ownBoard = _waitForAssignments(service, ownAssignments);
+      socket.add(
+        jsonEncode({
+          'type': 'board_state',
+          'data': {
+            'playerId': 'player-1',
+            'assignments': [
+              {'row': 3, 'column': 2, 'value': 2},
+            ],
+          },
+        }),
+      );
+      await ownBoard;
+      expect(service.assignments, ownAssignments);
+
+      final leaveNotice = _waitForNextNotification(service);
+      socket.add(
+        jsonEncode({
+          'type': 'player_left',
+          'data': {
+            'playerId': 'player-2',
+            'playerName': 'Luis',
+            'winnerPlayerId': 'player-1',
+          },
+        }),
+      );
+      await leaveNotice;
+      expect(
+        service.roomNotice,
+        'Luis se salió de la partida. ¡Ganaste la partida!',
+      );
+      expect(service.gameStarted, isFalse);
+      expect(service.assignments, isEmpty);
+      expect(service.dice, isEmpty);
+    },
+  );
+}
+
+Future<void> _waitForNextNotification(MultiplayerService service) {
+  final completer = Completer<void>();
+  late void Function() listener;
+  listener = () {
+    service.removeListener(listener);
+    if (!completer.isCompleted) completer.complete();
+  };
+  service.addListener(listener);
+  return completer.future.timeout(const Duration(seconds: 5));
+}
+
+Future<void> _waitForAssignments(
+  MultiplayerService service,
+  Map<(int, int), int> expected,
+) {
+  bool matches() =>
+      service.assignments.length == expected.length &&
+      expected.entries.every(
+        (entry) => service.assignments[entry.key] == entry.value,
+      );
+
+  if (matches()) return Future<void>.value();
+
+  final completer = Completer<void>();
+  late void Function() listener;
+  listener = () {
+    if (matches() && !completer.isCompleted) {
+      service.removeListener(listener);
+      completer.complete();
+    }
+  };
+  service.addListener(listener);
+  return completer.future.timeout(const Duration(seconds: 5));
 }
 
 Future<void> _waitForDiceRoll(MultiplayerService service, int rollId) {

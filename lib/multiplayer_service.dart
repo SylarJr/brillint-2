@@ -74,6 +74,7 @@ class MultiplayerService extends ChangeNotifier {
   int _nextRequestId = 0;
   bool connected = false;
   String? errorMessage;
+  String? roomNotice;
   String? roomCode;
   String? playerId;
   int? mapId;
@@ -92,6 +93,7 @@ class MultiplayerService extends ChangeNotifier {
     required int mapId,
     required String playerName,
   }) async {
+    roomNotice = null;
     final data = await _request('create_room', {
       'mapId': mapId,
       'playerName': playerName,
@@ -111,6 +113,7 @@ class MultiplayerService extends ChangeNotifier {
     required String code,
     required String playerName,
   }) async {
+    roomNotice = null;
     final data = await _request('join_room', {
       'code': code.trim().toUpperCase(),
       'playerName': playerName,
@@ -241,6 +244,7 @@ class MultiplayerService extends ChangeNotifier {
         case 'room_state':
           _applyRoomData(data);
         case 'game_started':
+          roomNotice = null;
           gameStarted = true;
           _applyOptionalBoard(data);
           notifyListeners();
@@ -262,6 +266,21 @@ class MultiplayerService extends ChangeNotifier {
         case 'game_over':
           gameStarted = true;
           _applyScores(data);
+        case 'player_left':
+          final playerName = data['playerName'] as String? ?? 'Un jugador';
+          final winnerPlayerId = data['winnerPlayerId'] as String?;
+          roomNotice = winnerPlayerId == playerId
+              ? '$playerName se salió de la partida. ¡Ganaste la partida!'
+              : '$playerName se salió de la partida.';
+          if (winnerPlayerId != null) {
+            gameStarted = false;
+            diceRollId = 0;
+            dice = const [];
+            assignments = const {};
+            scores = const [];
+            zoneWinners = const [];
+          }
+          notifyListeners();
         case 'error':
           errorMessage = data['message'] as String? ?? 'Error del servidor.';
           notifyListeners();
@@ -302,7 +321,9 @@ class MultiplayerService extends ChangeNotifier {
   }
 
   void _applyOptionalBoard(Map<String, Object?> data) {
-    if (data['assignments'] is List) {
+    final boardPlayerId = data['playerId'];
+    if (data['assignments'] is List &&
+        (boardPlayerId == null || boardPlayerId == playerId)) {
       final entries = (data['assignments'] as List)
           .map(_objectMap)
           .toList(growable: false);
@@ -346,6 +367,7 @@ class MultiplayerService extends ChangeNotifier {
     mapId = null;
     gameStarted = false;
     diceRollId = 0;
+    roomNotice = null;
     players = const [];
     dice = const [];
     assignments = const {};

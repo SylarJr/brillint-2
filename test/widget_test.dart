@@ -430,7 +430,9 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     expect(bloc.state.isDiceRolled, isTrue);
 
-    await tester.tap(find.byKey(const ValueKey('dado-0')));
+    final firstDie = find.byKey(const ValueKey('dado-0'));
+    await tester.ensureVisible(firstDie);
+    await tester.tap(firstDie);
     await tester.pump();
     final position = bloc.state.validPositions.first;
     final cell = find.byKey(ValueKey('celda-${position.x}-${position.y}'));
@@ -472,6 +474,56 @@ void main() {
     expect(bloc.state.dados, [1, 2]);
   });
 
+  testWidgets('muestra reglas del mapa y devuelve al ganador al lobby', (
+    WidgetTester tester,
+  ) async {
+    final service = _FakeMultiplayerService();
+    await _entrarAlMapa(tester, mapa: 3, multiplayer: service);
+    final bloc = tester
+        .element(find.byKey(const ValueKey('celda-0-0')))
+        .read<BoardBloc>();
+
+    expect(find.byKey(const ValueKey('panel-reglas-colores')), findsNothing);
+    service.startGame();
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('panel-reglas-colores')), findsOneWidget);
+    expect(find.text('NARANJA 4-6'), findsOneWidget);
+    expect(find.text('NARANJA 1-3'), findsOneWidget);
+
+    service.opponentLeft();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Lobby'), findsOneWidget);
+    expect(find.byKey(const ValueKey('aviso-salida-jugador')), findsOneWidget);
+    expect(
+      find.text('Invitado se salió de la partida. ¡Ganaste la partida!'),
+      findsOneWidget,
+    );
+    expect(bloc.state.mapaSeleccionado, 3);
+    expect(bloc.state.asignaciones, isEmpty);
+    expect(bloc.state.listoParaJugar, isFalse);
+  });
+
+  testWidgets('permite salir de una partida desde el tablero', (
+    WidgetTester tester,
+  ) async {
+    final service = _FakeMultiplayerService();
+    await _entrarAlMapa(tester, multiplayer: service);
+    service.startGame();
+    await tester.pumpAndSettle();
+
+    final leaveButton = find.byKey(const ValueKey('salir-partida'));
+    expect(leaveButton, findsOneWidget);
+    await tester.tap(leaveButton);
+    await tester.pumpAndSettle();
+    expect(find.byType(AlertDialog), findsOneWidget);
+
+    await tester.tap(find.text('Salir').last);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('mapa-card-0')), findsOneWidget);
+  });
+
   testWidgets('muestra el panel de puntuación a la derecha en escritorio', (
     WidgetTester tester,
   ) async {
@@ -502,7 +554,7 @@ void main() {
     service.startGame();
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const ValueKey('salir-mapa')), findsOneWidget);
+    expect(find.byKey(const ValueKey('salir-partida')), findsOneWidget);
     expect(find.byKey(const ValueKey('panel-puntuacion')), findsOneWidget);
     expect(find.byKey(const ValueKey('panel-dados')), findsOneWidget);
     expect(find.byKey(const ValueKey('marcador-pendiente')), findsNWidgets(6));
@@ -603,6 +655,18 @@ class _FakeMultiplayerService extends MultiplayerService {
     this.assignments = assignments ?? this.assignments;
     this.dice = dice;
     diceRollId++;
+    notifyListeners();
+  }
+
+  void opponentLeft() {
+    players = [players.first];
+    roomNotice = 'Invitado se salió de la partida. ¡Ganaste la partida!';
+    gameStarted = false;
+    diceRollId = 0;
+    dice = const [];
+    assignments = const {};
+    scores = const [];
+    zoneWinners = const [];
     notifyListeners();
   }
 
