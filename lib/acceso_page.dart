@@ -75,11 +75,19 @@ class _AccesoPageState extends State<AccesoPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final compact = constraints.maxWidth < 360;
+            final horizontalPadding = compact ? 12.0 : 24.0;
+            return SingleChildScrollView(
+              padding: EdgeInsets.symmetric(
+                horizontal: horizontalPadding,
+                vertical: compact ? 12 : 24,
+              ),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: constraints.maxHeight - (compact ? 24 : 48),
+                ),
                 child: Center(
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 430),
@@ -91,7 +99,7 @@ class _AccesoPageState extends State<AccesoPage> {
                         side: const BorderSide(color: Color(0xFFDCE5DF)),
                       ),
                       child: Padding(
-                        padding: const EdgeInsets.all(28),
+                        padding: EdgeInsets.all(compact ? 18 : 28),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
@@ -229,8 +237,8 @@ class _AccesoPageState extends State<AccesoPage> {
                   ),
                 ),
               ),
-            ),
-          ],
+            );
+          },
         ),
       ),
     );

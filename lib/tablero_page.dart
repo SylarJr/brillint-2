@@ -15,10 +15,22 @@ class TableroPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final multiplayer = context.watch<MultiplayerService>();
+    final viewportWidth = MediaQuery.sizeOf(context).width;
+    final compact = viewportWidth < 360;
+    final horizontalPadding = compact
+        ? 10.0
+        : viewportWidth < 600
+        ? 16.0
+        : 22.0;
     return Scaffold(
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(22, 18, 22, 24),
+          padding: EdgeInsets.fromLTRB(
+            horizontalPadding,
+            compact ? 12 : 18,
+            horizontalPadding,
+            24,
+          ),
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 1000),
@@ -40,39 +52,41 @@ class TableroPage extends StatelessWidget {
                           size: 21,
                         ),
                       ),
-                      const SizedBox(width: 11),
-                      const Text(
-                        'BRILLANT',
-                        style: TextStyle(
-                          color: Color(0xFF183F38),
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 1.5,
+                      if (!compact) ...[
+                        const SizedBox(width: 11),
+                        const Text(
+                          'BRILLANT',
+                          style: TextStyle(
+                            color: Color(0xFF183F38),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 1.5,
+                          ),
                         ),
-                      ),
+                      ],
                       const Spacer(),
                       BlocBuilder<BoardBloc, BoardState>(
                         builder: (context, state) {
                           if (onBackToLobby != null &&
                               !multiplayer.gameStarted &&
                               !state.listoParaJugar) {
-                            return OutlinedButton.icon(
+                            return _buildExitButton(
+                              compact: compact,
                               key: const ValueKey('volver-lobby'),
-                              onPressed: onBackToLobby,
-                              icon: const Icon(Icons.arrow_back_rounded),
-                              label: const Text('Volver al lobby'),
+                              label: 'Volver al lobby',
+                              onPressed: onBackToLobby!,
                             );
                           }
                           if (multiplayer.gameStarted &&
                               state.asignaciones.isEmpty &&
                               !state.listoParaJugar) {
-                            return OutlinedButton.icon(
+                            return _buildExitButton(
+                              compact: compact,
                               key: const ValueKey('salir-mapa'),
+                              label: 'Salir del mapa',
                               onPressed: () => context.read<BoardBloc>().add(
                                 const BoardMapExited(),
                               ),
-                              icon: const Icon(Icons.arrow_back_rounded),
-                              label: const Text('Salir del mapa'),
                             );
                           }
                           return const SizedBox.shrink();
@@ -80,12 +94,12 @@ class TableroPage extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 30),
-                  const Text(
+                  SizedBox(height: compact ? 18 : 30),
+                  Text(
                     'Mapa de colores',
                     style: TextStyle(
-                      color: Color(0xFF18332D),
-                      fontSize: 28,
+                      color: const Color(0xFF18332D),
+                      fontSize: compact ? 24 : 28,
                       fontWeight: FontWeight.w800,
                       height: 1.1,
                     ),
@@ -119,6 +133,28 @@ class TableroPage extends StatelessWidget {
       ),
     );
   }
+}
+
+Widget _buildExitButton({
+  required bool compact,
+  required Key key,
+  required String label,
+  required VoidCallback onPressed,
+}) {
+  if (compact) {
+    return IconButton(
+      key: key,
+      tooltip: label,
+      onPressed: onPressed,
+      icon: const Icon(Icons.arrow_back_rounded),
+    );
+  }
+  return OutlinedButton.icon(
+    key: key,
+    onPressed: onPressed,
+    icon: const Icon(Icons.arrow_back_rounded),
+    label: Text(label),
+  );
 }
 
 String _nombreTipo(Tipo tipo) => switch (tipo) {
@@ -182,44 +218,56 @@ class _ContenidoTablero extends StatelessWidget {
             if (!state.preparacionCompleta || state.listoParaJugar) {
               return const SizedBox.shrink();
             }
+            final readyButton = FilledButton.icon(
+              key: const ValueKey('boton-estoy-listo'),
+              onPressed: state.enviandoListo
+                  ? null
+                  : () => context.read<BoardBloc>().add(
+                      const BoardReadyPressed(),
+                    ),
+              icon: state.enviandoListo
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.check_circle_outline),
+              label: Text(
+                state.enviandoListo ? 'Enviando...' : 'Estoy listo para jugar',
+              ),
+            );
+            final undoButton = OutlinedButton.icon(
+              key: const ValueKey('boton-deshacer-inicial'),
+              onPressed: state.enviandoListo
+                  ? null
+                  : () => context.read<BoardBloc>().add(
+                      const UndoLastPlacementEvent(),
+                    ),
+              icon: const Icon(Icons.undo),
+              label: const Text('Deshacer'),
+            );
             return Padding(
               padding: const EdgeInsets.only(top: 18),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: FilledButton.icon(
-                      key: const ValueKey('boton-estoy-listo'),
-                      onPressed: state.enviandoListo
-                          ? null
-                          : () => context.read<BoardBloc>().add(
-                              const BoardReadyPressed(),
-                            ),
-                      icon: state.enviandoListo
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.check_circle_outline),
-                      label: Text(
-                        state.enviandoListo
-                            ? 'Enviando...'
-                            : 'Estoy listo para jugar',
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  OutlinedButton.icon(
-                    key: const ValueKey('boton-deshacer-inicial'),
-                    onPressed: state.enviandoListo
-                        ? null
-                        : () => context.read<BoardBloc>().add(
-                            const UndoLastPlacementEvent(),
-                          ),
-                    icon: const Icon(Icons.undo),
-                    label: const Text('Deshacer'),
-                  ),
-                ],
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  if (constraints.maxWidth < 380) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        readyButton,
+                        const SizedBox(height: 8),
+                        undoButton,
+                      ],
+                    );
+                  }
+                  return Row(
+                    children: [
+                      Expanded(child: readyButton),
+                      const SizedBox(width: 8),
+                      undoButton,
+                    ],
+                  );
+                },
               ),
             );
           },
@@ -236,39 +284,57 @@ class _ContenidoTablero extends StatelessWidget {
                 : state.matriz[casilla.$1][casilla.$2];
             return Padding(
               padding: const EdgeInsets.only(top: 18),
-              child: Row(
-                children: [
-                  Container(
-                    width: 10,
-                    height: 10,
-                    decoration: BoxDecoration(
-                      color: tipo?.color ?? const Color(0xFF61726C),
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  const SizedBox(width: 9),
-                  Text(
-                    casilla == null
-                        ? '${state.asignaciones.length} DE 6 NÚMEROS COLOCADOS'
-                        : 'FILA ${casilla.$1 + 1}  /  COLUMNA ${casilla.$2 + 1}',
-                    style: const TextStyle(
-                      color: Color(0xFF52635D),
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.8,
-                    ),
-                  ),
-                  const Spacer(),
-                  Text(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final information = Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          color: tipo?.color ?? const Color(0xFF61726C),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 9),
+                      Flexible(
+                        child: Text(
+                          casilla == null
+                              ? '${state.asignaciones.length} DE 6 NÚMEROS COLOCADOS'
+                              : 'FILA ${casilla.$1 + 1} / COLUMNA ${casilla.$2 + 1}',
+                          style: const TextStyle(
+                            color: Color(0xFF52635D),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                  final type = Text(
                     tipo == null ? '' : _nombreTipo(tipo),
                     style: const TextStyle(
                       color: Color(0xFF18332D),
                       fontSize: 11,
                       fontWeight: FontWeight.w800,
-                      letterSpacing: 0.8,
+                      letterSpacing: 0.5,
                     ),
-                  ),
-                ],
+                  );
+                  if (constraints.maxWidth < 380) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [information, if (tipo != null) type],
+                    );
+                  }
+                  return Row(
+                    children: [
+                      Expanded(child: information),
+                      if (tipo != null) type,
+                    ],
+                  );
+                },
               ),
             );
           },
@@ -283,145 +349,162 @@ class _MatrizTablero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AspectRatio(
-      aspectRatio: 1,
-      child: BlocBuilder<BoardBloc, BoardState>(
-        builder: (context, state) => GridView.builder(
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: 49,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 7,
-            crossAxisSpacing: 7,
-            mainAxisSpacing: 7,
-          ),
-          itemBuilder: (context, index) {
-            final fila = index ~/ 7;
-            final columna = index % 7;
-            final tipo = state.matriz[fila][columna];
-            final marcada = state.esCasillaMarcada(fila, columna);
-            final numero = state.numeroVisibleEn(fila, columna);
-            final seleccionada = state.casillaSeleccionada == (fila, columna);
-            final origenMovimiento =
-                state.casillaOrigenMovimiento == (fila, columna);
-            final numeroInicialSeleccionado =
-                !state.listoParaJugar && marcada && numero != null;
-            final valida = state.validPositions.contains(
-              Point<int>(fila, columna),
-            );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final spacing = (constraints.maxWidth / 42).clamp(3.0, 7.0);
+        final numberFontSize = (constraints.maxWidth / 14).clamp(12.0, 18.0);
+        return AspectRatio(
+          aspectRatio: 1,
+          child: BlocBuilder<BoardBloc, BoardState>(
+            builder: (context, state) => GridView.builder(
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: 49,
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 7,
+                crossAxisSpacing: spacing,
+                mainAxisSpacing: spacing,
+              ),
+              itemBuilder: (context, index) {
+                final fila = index ~/ 7;
+                final columna = index % 7;
+                final tipo = state.matriz[fila][columna];
+                final marcada = state.esCasillaMarcada(fila, columna);
+                final numero = state.numeroVisibleEn(fila, columna);
+                final seleccionada =
+                    state.casillaSeleccionada == (fila, columna);
+                final origenMovimiento =
+                    state.casillaOrigenMovimiento == (fila, columna);
+                final numeroInicialSeleccionado =
+                    !state.listoParaJugar && marcada && numero != null;
+                final valida = state.validPositions.contains(
+                  Point<int>(fila, columna),
+                );
 
-            return Semantics(
-              label:
-                  'Fila ${fila + 1}, columna ${columna + 1}, ${tipo.descripcion}',
-              button: true,
-              hint: valida ? 'Casilla válida para colocar un dado' : null,
-              child: AnimatedContainer(
-                duration: Duration.zero,
-                decoration: BoxDecoration(
-                  color: valida
-                      ? Color.lerp(tipo.color, const Color(0xFF00E676), 0.42)
-                      : seleccionada || origenMovimiento
-                      ? Color.lerp(tipo.color, const Color(0xFF35C979), 0.3)
-                      : tipo.color,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: valida
-                        ? const Color(0xFF00A844)
-                        : seleccionada || origenMovimiento
-                        ? const Color(0xFF087A45)
-                        : marcada
-                        ? const Color(0xFF183F38)
-                        : Colors.white,
-                    width: valida || seleccionada || origenMovimiento
-                        ? 3
-                        : marcada
-                        ? 2
-                        : 1.5,
-                  ),
-                  boxShadow: valida
-                      ? const [
-                          BoxShadow(
-                            color: Color(0xAA00D863),
-                            blurRadius: 14,
-                            spreadRadius: 1,
-                          ),
-                          BoxShadow(
-                            color: Color(0x4400A844),
-                            blurRadius: 20,
-                            spreadRadius: 2,
-                          ),
-                        ]
-                      : seleccionada || origenMovimiento
-                      ? const [
-                          BoxShadow(
-                            color: Color(0x7735C979),
-                            blurRadius: 12,
-                            spreadRadius: 1,
-                            offset: Offset(0, 3),
-                          ),
-                        ]
-                      : null,
-                ),
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    key: ValueKey('celda-$fila-$columna'),
-                    borderRadius: BorderRadius.circular(8),
-                    onTap: state.listoParaJugar
-                        ? valida &&
-                                  state.isDiceRolled &&
-                                  state.movimientoPendiente.isEmpty &&
-                                  !state.turnoConfirmado
-                              ? () {
-                                  final opciones = state.numerosColocablesEn(
-                                    fila,
-                                    columna,
-                                  );
-                                  final elegido = state.selectedDiceValue;
-                                  if (elegido != null &&
-                                      opciones.contains(elegido)) {
-                                    context.read<BoardBloc>().add(
-                                      PlaceNumberEvent(fila, columna, elegido),
-                                    );
-                                  }
-                                }
-                              : null
-                        : marcada
-                        ? () => context.read<BoardBloc>().add(
-                            BoardCellSelected(fila, columna),
-                          )
-                        : null,
-                    child: Center(
-                      child: numero == null
-                          ? marcada
-                                ? const _MarcadorPendiente()
-                                : const SizedBox.shrink()
-                          : Text(
-                              '$numero',
-                              key: ValueKey(
-                                'numero-celda-$fila-$columna-$numero',
+                return Semantics(
+                  label:
+                      'Fila ${fila + 1}, columna ${columna + 1}, ${tipo.descripcion}',
+                  button: true,
+                  hint: valida ? 'Casilla válida para colocar un dado' : null,
+                  child: AnimatedContainer(
+                    duration: Duration.zero,
+                    decoration: BoxDecoration(
+                      color: valida
+                          ? Color.lerp(
+                              tipo.color,
+                              const Color(0xFF00E676),
+                              0.42,
+                            )
+                          : seleccionada || origenMovimiento
+                          ? Color.lerp(tipo.color, const Color(0xFF35C979), 0.3)
+                          : tipo.color,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: valida
+                            ? const Color(0xFF00A844)
+                            : seleccionada || origenMovimiento
+                            ? const Color(0xFF087A45)
+                            : marcada
+                            ? const Color(0xFF183F38)
+                            : Colors.white,
+                        width: valida || seleccionada || origenMovimiento
+                            ? 3
+                            : marcada
+                            ? 2
+                            : 1.5,
+                      ),
+                      boxShadow: valida
+                          ? const [
+                              BoxShadow(
+                                color: Color(0xAA00D863),
+                                blurRadius: 14,
+                                spreadRadius: 1,
                               ),
-                              style: TextStyle(
-                                color: numeroInicialSeleccionado
-                                    ? Color(0xFF2563EB)
-                                    : Color(0xFF18332D),
-                                fontSize: 18,
-                                fontWeight: FontWeight.w900,
+                              BoxShadow(
+                                color: Color(0x4400A844),
+                                blurRadius: 20,
+                                spreadRadius: 2,
                               ),
-                            ),
+                            ]
+                          : seleccionada || origenMovimiento
+                          ? const [
+                              BoxShadow(
+                                color: Color(0x7735C979),
+                                blurRadius: 12,
+                                spreadRadius: 1,
+                                offset: Offset(0, 3),
+                              ),
+                            ]
+                          : null,
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        key: ValueKey('celda-$fila-$columna'),
+                        borderRadius: BorderRadius.circular(8),
+                        onTap: state.listoParaJugar
+                            ? valida &&
+                                      state.isDiceRolled &&
+                                      state.movimientoPendiente.isEmpty &&
+                                      !state.turnoConfirmado
+                                  ? () {
+                                      final opciones = state
+                                          .numerosColocablesEn(fila, columna);
+                                      final elegido = state.selectedDiceValue;
+                                      if (elegido != null &&
+                                          opciones.contains(elegido)) {
+                                        context.read<BoardBloc>().add(
+                                          PlaceNumberEvent(
+                                            fila,
+                                            columna,
+                                            elegido,
+                                          ),
+                                        );
+                                      }
+                                    }
+                                  : null
+                            : marcada
+                            ? () => context.read<BoardBloc>().add(
+                                BoardCellSelected(fila, columna),
+                              )
+                            : null,
+                        child: Center(
+                          child: numero == null
+                              ? marcada
+                                    ? _MarcadorPendiente(
+                                        fontSize: numberFontSize * 1.4,
+                                      )
+                                    : const SizedBox.shrink()
+                              : Text(
+                                  '$numero',
+                                  key: ValueKey(
+                                    'numero-celda-$fila-$columna-$numero',
+                                  ),
+                                  style: TextStyle(
+                                    color: numeroInicialSeleccionado
+                                        ? Color(0xFF2563EB)
+                                        : Color(0xFF18332D),
+                                    fontSize: numberFontSize,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              ),
-            );
-          },
-        ),
-      ),
+                );
+              },
+            ),
+          ),
+        );
+      },
     );
   }
 }
 
 class _MarcadorPendiente extends StatelessWidget {
-  const _MarcadorPendiente();
+  const _MarcadorPendiente({required this.fontSize});
+
+  final double fontSize;
 
   @override
   Widget build(BuildContext context) {
@@ -436,16 +519,16 @@ class _MarcadorPendiente extends StatelessWidget {
               ..style = PaintingStyle.stroke
               ..strokeWidth = 2.4
               ..color = const Color(0xFF183F38),
-            fontSize: 25,
+            fontSize: fontSize,
             fontWeight: FontWeight.w900,
             height: 1,
           ),
         ),
-        const Text(
+        Text(
           '*',
           style: TextStyle(
             color: Color(0xFF183F38),
-            fontSize: 25,
+            fontSize: fontSize,
             fontWeight: FontWeight.w900,
             height: 1,
           ),
@@ -490,62 +573,71 @@ class _PanelNumeros extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 9),
-            Row(
-              children: BoardState.numerosPermitidos.map((numero) {
-                if (!numeros.contains(numero)) return const SizedBox.shrink();
-                final disponible = origenMovimiento == null
-                    ? state.numeroEn(casilla.$1, casilla.$2) == null
-                    : numero == numeroMovimiento && casilla != origenMovimiento;
-                final yaSeleccionado = state.asignaciones.values.contains(
-                  numero,
-                );
-                final posicionOrigen =
-                    origenMovimiento ??
-                    state.asignaciones.entries
-                        .where((entrada) => entrada.value == numero)
-                        .firstOrNull
-                        ?.key;
-                final posicionesExcluidas = {
-                  ?posicionOrigen,
-                  if (origenMovimiento != null) casilla,
-                };
-                final puedeAsignarse =
-                    disponible &&
-                    state.puedeAsignarNumero(
-                      casilla.$1,
-                      casilla.$2,
-                      numero,
-                      excluir: posicionesExcluidas,
-                    );
-                return Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.only(right: 6),
-                    child: OutlinedButton(
-                      key: ValueKey('numero-$numero'),
-                      onPressed: puedeAsignarse
-                          ? () => context.read<BoardBloc>().add(
-                              BoardNumberAssigned(numero),
-                            )
-                          : null,
-                      style: OutlinedButton.styleFrom(
-                        backgroundColor: yaSeleccionado
-                            ? const Color(0xFFDBEAFE)
-                            : null,
-                        foregroundColor: yaSeleccionado
-                            ? const Color(0xFF1D4ED8)
-                            : null,
-                        side: BorderSide(
-                          color: yaSeleccionado
-                              ? const Color(0xFF2563EB)
-                              : const Color(0xFFBCC9C3),
-                          width: yaSeleccionado ? 2 : 1,
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final columns = constraints.maxWidth < 480 ? 3 : 6;
+                final buttonWidth =
+                    (constraints.maxWidth - 8 * (columns - 1)) / columns;
+                final buttons = BoardState.numerosPermitidos
+                    .where(numeros.contains)
+                    .map((numero) {
+                      final disponible = origenMovimiento == null
+                          ? state.numeroEn(casilla.$1, casilla.$2) == null
+                          : numero == numeroMovimiento &&
+                                casilla != origenMovimiento;
+                      final yaSeleccionado = state.asignaciones.values.contains(
+                        numero,
+                      );
+                      final posicionOrigen =
+                          origenMovimiento ??
+                          state.asignaciones.entries
+                              .where((entrada) => entrada.value == numero)
+                              .firstOrNull
+                              ?.key;
+                      final posicionesExcluidas = {
+                        ?posicionOrigen,
+                        if (origenMovimiento != null) casilla,
+                      };
+                      final puedeAsignarse =
+                          disponible &&
+                          state.puedeAsignarNumero(
+                            casilla.$1,
+                            casilla.$2,
+                            numero,
+                            excluir: posicionesExcluidas,
+                          );
+                      return SizedBox(
+                        width: buttonWidth,
+                        child: OutlinedButton(
+                          key: ValueKey('numero-$numero'),
+                          onPressed: puedeAsignarse
+                              ? () => context.read<BoardBloc>().add(
+                                  BoardNumberAssigned(numero),
+                                )
+                              : null,
+                          style: OutlinedButton.styleFrom(
+                            backgroundColor: yaSeleccionado
+                                ? const Color(0xFFDBEAFE)
+                                : null,
+                            foregroundColor: yaSeleccionado
+                                ? const Color(0xFF1D4ED8)
+                                : null,
+                            side: BorderSide(
+                              color: yaSeleccionado
+                                  ? const Color(0xFF2563EB)
+                                  : const Color(0xFFBCC9C3),
+                              width: yaSeleccionado ? 2 : 1,
+                            ),
+                            minimumSize: const Size(0, 44),
+                            padding: EdgeInsets.zero,
+                          ),
+                          child: Text('$numero'),
                         ),
-                      ),
-                      child: Text('$numero'),
-                    ),
-                  ),
-                );
-              }).toList(),
+                      );
+                    })
+                    .toList();
+                return Wrap(spacing: 8, runSpacing: 8, children: buttons);
+              },
             ),
           ],
         );

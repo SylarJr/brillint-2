@@ -37,6 +37,7 @@ class _LobbyPageState extends State<LobbyPage> {
       animation: widget.multiplayer,
       builder: (context, _) {
         final service = widget.multiplayer;
+        final compact = MediaQuery.sizeOf(context).width < 360;
         final readyCount = service.players
             .where((player) => player.ready)
             .length;
@@ -57,7 +58,7 @@ class _LobbyPageState extends State<LobbyPage> {
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 560),
                 child: ListView(
-                  padding: const EdgeInsets.all(24),
+                  padding: EdgeInsets.all(compact ? 14 : 24),
                   children: [
                     const Icon(
                       Icons.groups_rounded,
@@ -65,12 +66,12 @@ class _LobbyPageState extends State<LobbyPage> {
                       color: Color(0xFF183F38),
                     ),
                     const SizedBox(height: 12),
-                    const Text(
+                    Text(
                       'Invita a tus amigos',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Color(0xFF18332D),
-                        fontSize: 26,
+                        fontSize: compact ? 23 : 26,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
@@ -114,37 +115,42 @@ class _LobbyPageState extends State<LobbyPage> {
                     const SizedBox(height: 8),
                     for (final player in service.players)
                       Card(
-                        child: ListTile(
-                          leading: Icon(
-                            player.ready
-                                ? Icons.check_circle
-                                : Icons.account_circle_outlined,
-                            color: player.ready
-                                ? const Color(0xFF16834A)
-                                : const Color(0xFF61726C),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 10,
                           ),
-                          title: Text(player.name),
-                          trailing: Text(player.ready ? 'LISTO' : 'ESPERANDO'),
+                          child: Row(
+                            children: [
+                              Icon(
+                                player.ready
+                                    ? Icons.check_circle
+                                    : Icons.account_circle_outlined,
+                                color: player.ready
+                                    ? const Color(0xFF16834A)
+                                    : const Color(0xFF61726C),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  player.name,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                player.ready ? 'LISTO' : 'ESPERANDO',
+                                style: const TextStyle(fontSize: 11),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     const SizedBox(height: 12),
                     Text(
                       '$readyCount de ${service.players.length} jugadores listos',
                       textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 16),
-                    FilledButton(
-                      key: const ValueKey('boton-listo-para-empezar'),
-                      onPressed: _sendingReady
-                          ? null
-                          : () => _toggleReady(!isReady),
-                      child: Text(
-                        _sendingReady
-                            ? 'Actualizando...'
-                            : isReady
-                            ? 'Cancelar listo'
-                            : 'Listo para empezar',
-                      ),
                     ),
                     if (service.errorMessage case final message?) ...[
                       const SizedBox(height: 12),
@@ -156,6 +162,27 @@ class _LobbyPageState extends State<LobbyPage> {
                       ),
                     ],
                   ],
+                ),
+              ),
+            ),
+          ),
+          bottomNavigationBar: SafeArea(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(
+                compact ? 14 : 24,
+                8,
+                compact ? 14 : 24,
+                compact ? 12 : 20,
+              ),
+              child: FilledButton(
+                key: const ValueKey('boton-listo-para-empezar'),
+                onPressed: _sendingReady ? null : () => _toggleReady(!isReady),
+                child: Text(
+                  _sendingReady
+                      ? 'Actualizando...'
+                      : isReady
+                      ? 'Cancelar listo'
+                      : 'Listo para empezar',
                 ),
               ),
             ),

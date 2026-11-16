@@ -41,10 +41,7 @@ class _MapaSelectorPageState extends State<MapaSelectorPage> {
     setState(() => _enviando = true);
     final service = context.read<MultiplayerService>();
     try {
-      await service.createRoom(
-        mapId: mapId,
-        playerName: widget.playerName,
-      );
+      await service.createRoom(mapId: mapId, playerName: widget.playerName);
       if (!mounted) return;
       context.read<BoardBloc>().add(BoardMapStarted(mapId));
     } catch (_) {
@@ -94,13 +91,20 @@ class _MapaSelectorPageState extends State<MapaSelectorPage> {
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
+            final compact = constraints.maxWidth < 380;
+            final horizontalPadding = compact ? 12.0 : 22.0;
             final columnas = constraints.maxWidth >= 1000
                 ? 4
                 : constraints.maxWidth >= 600
                 ? 2
                 : 1;
             return SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(22, 24, 22, 32),
+              padding: EdgeInsets.fromLTRB(
+                horizontalPadding,
+                compact ? 16 : 24,
+                horizontalPadding,
+                32,
+              ),
               child: Center(
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 1100),
@@ -125,28 +129,44 @@ class _MapaSelectorPageState extends State<MapaSelectorPage> {
                             ),
                           ),
                           const Spacer(),
-                          TextButton.icon(
-                            key: const ValueKey('cerrar-sesion'),
-                            onPressed: _cerrandoSesion ? null : _cerrarSesion,
-                            icon: _cerrandoSesion
-                                ? const SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Icon(Icons.logout),
-                            label: const Text('Cerrar sesión'),
-                          ),
+                          if (compact)
+                            IconButton(
+                              key: const ValueKey('cerrar-sesion'),
+                              tooltip: 'Cerrar sesión',
+                              onPressed: _cerrandoSesion ? null : _cerrarSesion,
+                              icon: _cerrandoSesion
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Icon(Icons.logout),
+                            )
+                          else
+                            TextButton.icon(
+                              key: const ValueKey('cerrar-sesion'),
+                              onPressed: _cerrandoSesion ? null : _cerrarSesion,
+                              icon: _cerrandoSesion
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Icon(Icons.logout),
+                              label: const Text('Cerrar sesión'),
+                            ),
                         ],
                       ),
-                      const SizedBox(height: 34),
-                      const Text(
+                      SizedBox(height: compact ? 22 : 34),
+                      Text(
                         'Juega con otras personas',
                         style: TextStyle(
                           color: Color(0xFF18332D),
-                          fontSize: 28,
+                          fontSize: compact ? 24 : 28,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
@@ -168,27 +188,48 @@ class _MapaSelectorPageState extends State<MapaSelectorPage> {
                         ),
                       ),
                       const SizedBox(height: 20),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              key: const ValueKey('codigo-sala'),
-                              controller: _codigoController,
-                              textCapitalization: TextCapitalization.characters,
-                              decoration: const InputDecoration(
-                                labelText: 'Código de invitación',
-                                border: OutlineInputBorder(),
-                              ),
-                            ),
+                      if (constraints.maxWidth < 340) ...[
+                        TextField(
+                          key: const ValueKey('codigo-sala'),
+                          controller: _codigoController,
+                          textCapitalization: TextCapitalization.characters,
+                          decoration: const InputDecoration(
+                            labelText: 'Código de invitación',
+                            border: OutlineInputBorder(),
                           ),
-                          const SizedBox(width: 10),
-                          FilledButton(
+                        ),
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton(
                             key: const ValueKey('unirse-sala'),
                             onPressed: _enviando ? null : _unirse,
                             child: const Text('Unirse'),
                           ),
-                        ],
-                      ),
+                        ),
+                      ] else
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                key: const ValueKey('codigo-sala'),
+                                controller: _codigoController,
+                                textCapitalization:
+                                    TextCapitalization.characters,
+                                decoration: const InputDecoration(
+                                  labelText: 'Código de invitación',
+                                  border: OutlineInputBorder(),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            FilledButton(
+                              key: const ValueKey('unirse-sala'),
+                              onPressed: _enviando ? null : _unirse,
+                              child: const Text('Unirse'),
+                            ),
+                          ],
+                        ),
                       if (service.errorMessage case final message?) ...[
                         const SizedBox(height: 12),
                         Text(

@@ -154,6 +154,61 @@ void main() {
     expect(cerrada, isTrue);
   });
 
+  testWidgets('la interfaz se adapta a un celular de ancho reducido', (
+    WidgetTester tester,
+  ) async {
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    for (final width in [280.0, 320.0, 360.0]) {
+      tester.view.physicalSize = Size(width, 640);
+      tester.view.devicePixelRatio = 1;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AccesoPage(
+            authService: AuthService(
+              invoker: _FakeAuthFunctionInvoker(),
+              tokenStorage: _FakeSessionTokenStorage(),
+            ),
+            onOpenMaps: () {},
+            onAuthenticated: (_) {},
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+
+      final service = _FakeMultiplayerService();
+      await _abrirSeleccionMapas(tester, multiplayer: service);
+      expect(tester.takeException(), isNull);
+      expect(find.byKey(const ValueKey('cerrar-sesion')), findsOneWidget);
+
+      final mapCard = find.byKey(const ValueKey('mapa-card-0'));
+      await tester.ensureVisible(mapCard);
+      await tester.tap(mapCard);
+      await tester.pumpAndSettle();
+      expect(find.text('Lobby'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+
+      final lobbyReady = find.byKey(const ValueKey('boton-listo-para-empezar'));
+      await tester.tap(lobbyReady);
+      await tester.pumpAndSettle();
+      service.markAllPlayersReady();
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('celda-0-0')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+
+      final target = BoardState.casillasObjetivo.first;
+      final targetCell = find.byKey(
+        ValueKey('celda-${target.$1}-${target.$2}'),
+      );
+      await tester.ensureVisible(targetCell);
+      await tester.tap(targetCell);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('numero-1')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    }
+  });
+
   testWidgets('inicio de sesión muestra el error del servidor', (
     WidgetTester tester,
   ) async {
@@ -240,6 +295,7 @@ void main() {
       250,
       scrollable: find.byType(Scrollable).last,
     );
+    await tester.ensureVisible(listo);
     await tester.tap(listo);
     await tester.pumpAndSettle();
 
@@ -272,11 +328,13 @@ void main() {
       250,
       scrollable: find.byType(Scrollable).last,
     );
+    await tester.ensureVisible(readyButton);
     await tester.tap(readyButton);
     await tester.pumpAndSettle();
     expect(service.players.first.ready, isTrue);
     expect(find.text('Lobby'), findsOneWidget);
 
+    await tester.ensureVisible(readyButton);
     await tester.tap(readyButton);
     await tester.pumpAndSettle();
 
