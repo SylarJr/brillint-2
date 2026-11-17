@@ -93,7 +93,7 @@ void main() {
     expect(find.text('¡Ana ganó!'), findsOneWidget);
     expect(find.byKey(const ValueKey('celebracion-victoria')), findsOneWidget);
 
-    await tester.pump(const Duration(seconds: 39));
+    await tester.pump(const Duration(seconds: 19));
     expect(find.text('¡Ana ganó!'), findsOneWidget);
 
     await tester.pump(const Duration(seconds: 1));
@@ -342,9 +342,16 @@ void main() {
     await tester.ensureVisible(listo);
     await tester.tap(listo);
     await tester.pumpAndSettle();
+    final readyCount = find.text('1 de 2 jugadores listos');
+    await tester.scrollUntilVisible(
+      readyCount,
+      250,
+      scrollable: find.byType(Scrollable).last,
+    );
 
     expect(service.players.first.ready, isTrue);
     expect(service.players.last.ready, isFalse);
+    expect(readyCount, findsOneWidget);
     expect(find.text('Lobby'), findsOneWidget);
     expect(find.text('Mapa de colores'), findsNothing);
     expect(service.allPlayersReady, isFalse);

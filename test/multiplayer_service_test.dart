@@ -19,6 +19,15 @@ void main() {
         socket = connection;
         connection.listen((message) {
           final request = jsonDecode(message as String) as Map<String, dynamic>;
+          final responsePlayers = request['type'] == 'set_ready'
+              ? [
+                  {'id': 'player-1', 'name': 'Ana', 'ready': true},
+                  {'id': 'player-2', 'name': 'Luis', 'ready': true},
+                ]
+              : [
+                  {'id': 'player-1', 'name': 'Ana', 'ready': false},
+                  {'id': 'player-2', 'name': 'Luis', 'ready': false},
+                ];
           connection.add(
             jsonEncode({
               'type': 'response',
@@ -28,10 +37,7 @@ void main() {
                 'code': 'ABC123',
                 'playerId': 'player-1',
                 'mapId': 3,
-                'players': [
-                  {'id': 'player-1', 'name': 'Ana', 'ready': false},
-                  {'id': 'player-2', 'name': 'Luis', 'ready': false},
-                ],
+                'players': responsePlayers,
                 'gameStarted': false,
               },
             }),
@@ -47,6 +53,11 @@ void main() {
         await server.close(force: true);
       });
       await service.createRoom(mapId: 3, playerName: 'Ana');
+
+      await service.setReady(true);
+      expect(service.players.first.ready, isTrue);
+      expect(service.players.last.ready, isFalse);
+      expect(service.allPlayersReady, isFalse);
 
       final initialRoll = _waitForDiceRoll(service, 1);
       socket.add(jsonEncode({'type': 'game_started', 'data': {}}));

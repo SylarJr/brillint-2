@@ -107,9 +107,35 @@ class MultiplayerService extends ChangeNotifier {
   }
 
   Future<void> setReady(bool ready) async {
+    final previousReadiness = {
+      for (final player in players) player.id: player.ready,
+    };
     final response = await _request('set_ready', {'ready': ready});
     if (response['players'] is List) {
-      _applyRoomData(response);
+      final responsePlayers = (response['players'] as List)
+          .map((playerData) {
+            final player = _objectMap(playerData);
+            final id = player['id'] as String;
+            return <String, Object?>{
+              ...player,
+              'ready': id == playerId
+                  ? ready
+                  : previousReadiness[id] ??
+                        (player['ready'] as bool? ?? false),
+            };
+          })
+          .toList(growable: false);
+      _applyRoomData({...response, 'players': responsePlayers});
+    } else {
+      players = [
+        for (final player in players)
+          RoomPlayer(
+            id: player.id,
+            name: player.name,
+            ready: player.id == playerId ? ready : player.ready,
+          ),
+      ];
+      notifyListeners();
     }
   }
 

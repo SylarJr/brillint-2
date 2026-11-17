@@ -32,7 +32,7 @@ class _VictoryCelebrationState extends State<VictoryCelebration>
   void initState() {
     super.initState();
     unawaited(_playSound());
-    _timer = Timer(const Duration(seconds: 40), () {
+    _timer = Timer(const Duration(seconds: 20), () {
       if (!mounted) return;
       setState(() => _visible = false);
       _particles.stop();
