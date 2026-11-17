@@ -9,6 +9,7 @@ import 'tablero_bloc.dart';
 import 'mapa_selector_page.dart';
 import 'tablero_page.dart';
 import 'multiplayer_service.dart';
+import 'victory_celebration.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -103,11 +104,11 @@ class PaginaPrincipal extends StatelessWidget {
     return AnimatedBuilder(
       animation: multiplayer,
       builder: (context, _) {
+        final Widget page;
         if (multiplayer.gameStarted || multiplayer.allPlayersReady) {
-          return const TableroPage();
-        }
-        if (multiplayer.roomCode != null) {
-          return LobbyPage(
+          page = const TableroPage();
+        } else if (multiplayer.roomCode != null) {
+          page = LobbyPage(
             multiplayer: multiplayer,
             onLeave: () async {
               try {
@@ -120,8 +121,21 @@ class PaginaPrincipal extends StatelessWidget {
               }
             },
           );
+        } else {
+          page = MapaSelectorPage(onLogout: onLogout, playerName: playerName);
         }
-        return MapaSelectorPage(onLogout: onLogout, playerName: playerName);
+
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            page,
+            if (multiplayer.winnerName case final winnerName?)
+              VictoryCelebration(
+                key: ValueKey(multiplayer.winnerPlayerId ?? winnerName),
+                winnerName: winnerName,
+              ),
+          ],
+        );
       },
     );
   }

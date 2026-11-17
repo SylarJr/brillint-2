@@ -215,6 +215,22 @@ class BoardState {
       return tipo.puedeAgregarValor(valoresBlancos, numero);
     }
 
+    if (tipo is TipoAzul) {
+      final valoresAzules = [
+        for (var filaAzul = 0; filaAzul < matriz.length; filaAzul++)
+          for (
+            var columnaAzul = 0;
+            columnaAzul < matriz[filaAzul].length;
+            columnaAzul++
+          )
+            if (matriz[filaAzul][columnaAzul] is TipoAzul &&
+                !excluir.contains((filaAzul, columnaAzul)) &&
+                asignaciones[(filaAzul, columnaAzul)] != null)
+              asignaciones[(filaAzul, columnaAzul)]!,
+      ];
+      return tipo.puedeAgregarValor(valoresAzules, numero);
+    }
+
     final pendientes = <(int, int)>[(fila, columna)];
     final visitadas = <(int, int)>{};
     final valoresRegion = <int>[];

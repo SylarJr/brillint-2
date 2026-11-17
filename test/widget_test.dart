@@ -78,6 +78,28 @@ Future<void> _completarTablero(WidgetTester tester) async {
 }
 
 void main() {
+  testWidgets('celebra al ganador con texto grande y partículas', (
+    WidgetTester tester,
+  ) async {
+    final service = _FakeMultiplayerService();
+    await _abrirSeleccionMapas(tester, multiplayer: service);
+
+    service
+      ..winnerName = 'Ana'
+      ..winnerPlayerId = 'player-1'
+      ..notifyListeners();
+    await tester.pump();
+
+    expect(find.text('¡Ana ganó!'), findsOneWidget);
+    expect(find.byKey(const ValueKey('celebracion-victoria')), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 39));
+    expect(find.text('¡Ana ganó!'), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.text('¡Ana ganó!'), findsNothing);
+  });
+
   testWidgets('muestra inicio de sesión y permite cambiar a registro', (
     WidgetTester tester,
   ) async {

@@ -75,6 +75,8 @@ class MultiplayerService extends ChangeNotifier {
   bool connected = false;
   String? errorMessage;
   String? roomNotice;
+  String? winnerName;
+  String? winnerPlayerId;
   String? roomCode;
   String? playerId;
   int? mapId;
@@ -94,6 +96,8 @@ class MultiplayerService extends ChangeNotifier {
     required String playerName,
   }) async {
     roomNotice = null;
+    winnerName = null;
+    winnerPlayerId = null;
     final data = await _request('create_room', {
       'mapId': mapId,
       'playerName': playerName,
@@ -114,6 +118,8 @@ class MultiplayerService extends ChangeNotifier {
     required String playerName,
   }) async {
     roomNotice = null;
+    winnerName = null;
+    winnerPlayerId = null;
     final data = await _request('join_room', {
       'code': code.trim().toUpperCase(),
       'playerName': playerName,
@@ -245,6 +251,8 @@ class MultiplayerService extends ChangeNotifier {
           _applyRoomData(data);
         case 'game_started':
           roomNotice = null;
+          winnerName = null;
+          winnerPlayerId = null;
           gameStarted = true;
           _applyOptionalBoard(data);
           notifyListeners();
@@ -266,13 +274,16 @@ class MultiplayerService extends ChangeNotifier {
         case 'game_over':
           gameStarted = true;
           _applyScores(data);
+          _applyWinner(data);
+          notifyListeners();
         case 'player_left':
           final playerName = data['playerName'] as String? ?? 'Un jugador';
-          final winnerPlayerId = data['winnerPlayerId'] as String?;
-          roomNotice = winnerPlayerId == playerId
+          final winningPlayerId = data['winnerPlayerId'] as String?;
+          roomNotice = winningPlayerId == playerId
               ? '$playerName se salió de la partida. ¡Ganaste la partida!'
               : '$playerName se salió de la partida.';
-          if (winnerPlayerId != null) {
+          if (winningPlayerId != null) {
+            _applyWinner(data);
             gameStarted = false;
             diceRollId = 0;
             dice = const [];
@@ -337,6 +348,45 @@ class MultiplayerService extends ChangeNotifier {
     }
   }
 
+  void _applyWinner(Map<String, Object?> data) {
+    final id = data['winnerPlayerId'] as String? ?? data['winnerId'] as String?;
+    final providedName =
+        data['winnerPlayerName'] as String? ??
+        data['winnerName'] as String? ??
+        (data['winner'] is String ? data['winner'] as String : null);
+
+    if (id != null) {
+      winnerPlayerId = id;
+      winnerName =
+          players.where((player) => player.id == id).firstOrNull?.name ??
+          providedName;
+      return;
+    }
+
+    if (providedName != null) {
+      final player = players
+          .where(
+            (player) =>
+                player.id == providedName || player.name == providedName,
+          )
+          .firstOrNull;
+      winnerPlayerId = player?.id;
+      winnerName = player?.name ?? providedName;
+      return;
+    }
+
+    if (scores.isEmpty) return;
+    final highestScore = scores
+        .map((score) => score.total)
+        .reduce((highest, score) => score > highest ? score : highest);
+    final leaders = scores.where((score) => score.total == highestScore);
+    if (leaders.length != 1) return;
+
+    final winner = leaders.first;
+    winnerPlayerId = winner.playerId;
+    winnerName = winner.playerName;
+  }
+
   void _applyScores(Map<String, Object?> data) {
     if (data['scores'] is List) {
       scores = [
@@ -368,6 +418,8 @@ class MultiplayerService extends ChangeNotifier {
     gameStarted = false;
     diceRollId = 0;
     roomNotice = null;
+    winnerName = null;
+    winnerPlayerId = null;
     players = const [];
     dice = const [];
     assignments = const {};

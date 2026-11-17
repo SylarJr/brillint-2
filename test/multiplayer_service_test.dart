@@ -174,6 +174,27 @@ void main() {
       await ownBoard;
       expect(service.assignments, ownAssignments);
 
+      final completedGame = _waitForNextNotification(service);
+      socket.add(
+        jsonEncode({
+          'type': 'game_over',
+          'data': {
+            'scores': [
+              {'playerId': 'player-1', 'playerName': 'Ana', 'total': 21},
+              {'playerId': 'player-2', 'playerName': 'Luis', 'total': 17},
+            ],
+          },
+        }),
+      );
+      await completedGame;
+      expect(service.winnerName, 'Ana');
+      expect(service.winnerPlayerId, 'player-1');
+
+      final nextGame = _waitForNextNotification(service);
+      socket.add(jsonEncode({'type': 'game_started', 'data': {}}));
+      await nextGame;
+      expect(service.winnerName, isNull);
+
       final leaveNotice = _waitForNextNotification(service);
       socket.add(
         jsonEncode({
@@ -190,6 +211,8 @@ void main() {
         service.roomNotice,
         'Luis se salió de la partida. ¡Ganaste la partida!',
       );
+      expect(service.winnerName, 'Ana');
+      expect(service.winnerPlayerId, 'player-1');
       expect(service.gameStarted, isFalse);
       expect(service.assignments, isEmpty);
       expect(service.dice, isEmpty);

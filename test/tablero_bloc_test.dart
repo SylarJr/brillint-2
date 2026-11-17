@@ -119,6 +119,19 @@ void main() {
       },
     );
 
+    test('azul mantiene el mismo número aunque las zonas estén separadas', () {
+      final state = BoardState(
+        matriz: BoardState.mapas[3].matriz,
+        casillasMarcadas: const {},
+        asignaciones: const {(5, 4): 3},
+        casillaSeleccionada: null,
+        listoParaJugar: false,
+      );
+
+      expect(state.puedeAsignarNumero(1, 2, 2), isFalse);
+      expect(state.puedeAsignarNumero(1, 2, 3), isTrue);
+    });
+
     test('rechaza números iniciales en casillas no marcadas', () async {
       final bloc = BoardBloc();
       addTearDown(bloc.close);
