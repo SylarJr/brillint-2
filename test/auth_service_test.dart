@@ -9,6 +9,7 @@ void main() {
     late AuthService service;
 
     setUp(() {
+      AuthService.clearActiveSessionsForTesting();
       invoker = _FakeInvoker();
       tokenStorage = _MemoryTokenStorage();
       service = AuthService(invoker: invoker, tokenStorage: tokenStorage);
@@ -48,6 +49,45 @@ void main() {
         expect(tokenStorage.token, 'test-session-token');
       },
     );
+
+    test(
+      'the same account cannot login while an active session exists',
+      () async {
+        invoker.responses.add(_sessionResponse());
+
+        await service.login('Jugador_1', 'password123');
+
+        await expectLater(
+          service.login('jugador_1', 'password123'),
+          throwsA(
+            isA<AuthServiceException>().having(
+              (error) => error.message,
+              'message',
+              'Esta cuenta ya tiene una sesión iniciada.',
+            ),
+          ),
+        );
+        expect(invoker.bodies, hasLength(1));
+      },
+    );
+
+    test('failed login releases the account for another attempt', () async {
+      invoker.errors.add(
+        const FunctionException(
+          status: 401,
+          details: {'error': 'Credenciales inválidas'},
+        ),
+      );
+      invoker.responses.add(_sessionResponse());
+
+      await expectLater(
+        service.login('Jugador_1', 'password123'),
+        throwsA(isA<AuthServiceException>()),
+      );
+
+      final session = await service.login('Jugador_1', 'password123');
+      expect(session.sessionToken, 'test-session-token');
+    });
 
     test('validateSession sends the token and parses the username', () async {
       invoker.responses.add(

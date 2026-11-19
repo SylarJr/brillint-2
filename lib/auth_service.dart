@@ -85,6 +85,14 @@ class SecureSessionTokenStorage implements SessionTokenStorage {
 }
 
 class AuthService {
+  static final Set<String> _activeAccounts = <String>{};
+  static final Map<String, String> _accountByToken = <String, String>{};
+
+  static void clearActiveSessionsForTesting() {
+    _activeAccounts.clear();
+    _accountByToken.clear();
+  }
+
   AuthService({AuthFunctionInvoker? invoker, SessionTokenStorage? tokenStorage})
     : _invoker =
           invoker ?? _SupabaseAuthFunctionInvoker(Supabase.instance.client),
@@ -95,26 +103,49 @@ class AuthService {
 
   Future<AuthSession> register(String usuarioName, String contrasena) async {
     _validateCredentials(usuarioName, contrasena);
-    final response = await _request({
-      'action': 'register',
-      'usuario_name': usuarioName,
-      'contrasena': contrasena,
-    });
-    final session = _parseSession(response);
-    await _tokenStorage.save(session.sessionToken);
-    return session;
+    return _loginOrRegister(
+      action: 'register',
+      usuarioName: usuarioName,
+      contrasena: contrasena,
+    );
   }
 
   Future<AuthSession> login(String usuarioName, String contrasena) async {
     _validateCredentials(usuarioName, contrasena);
-    final response = await _request({
-      'action': 'login',
-      'usuario_name': usuarioName,
-      'contrasena': contrasena,
-    });
-    final session = _parseSession(response);
-    await _tokenStorage.save(session.sessionToken);
-    return session;
+    return _loginOrRegister(
+      action: 'login',
+      usuarioName: usuarioName,
+      contrasena: contrasena,
+    );
+  }
+
+  Future<AuthSession> _loginOrRegister({
+    required String action,
+    required String usuarioName,
+    required String contrasena,
+  }) async {
+    final account = usuarioName.toLowerCase();
+    if (_activeAccounts.contains(account)) {
+      throw const AuthServiceException(
+        message: 'Esta cuenta ya tiene una sesión iniciada.',
+      );
+    }
+
+    _activeAccounts.add(account);
+    try {
+      final response = await _request({
+        'action': action,
+        'usuario_name': usuarioName,
+        'contrasena': contrasena,
+      });
+      final session = _parseSession(response);
+      _accountByToken[session.sessionToken] = session.usuarioName.toLowerCase();
+      await _tokenStorage.save(session.sessionToken);
+      return session;
+    } catch (_) {
+      _activeAccounts.remove(account);
+      rethrow;
+    }
   }
 
   Future<AuthenticatedUser> validateSession({String? sessionToken}) async {
@@ -142,6 +173,10 @@ class AuthService {
       throw _invalidResponse(response.statusCode);
     }
 
+    final account = _accountByToken.remove(token);
+    if (account != null) {
+      _activeAccounts.remove(account);
+    }
     final savedToken = await _tokenStorage.read();
     if (savedToken == token) {
       await _tokenStorage.delete();

@@ -110,7 +110,7 @@ class _LobbyPageState extends State<LobbyPage> {
                     ),
                     const SizedBox(height: 20),
                     Text(
-                      'JUGADORES (${service.players.length})',
+                      'JUGADORES (${service.players.length}/${MultiplayerService.maxPlayers})',
                       style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w800,

@@ -15,10 +15,17 @@ void main() {
     () async {
       final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       late WebSocket socket;
+      Map<String, dynamic>? createPayload;
+      Map<String, dynamic>? joinPayload;
       server.transform(WebSocketTransformer()).listen((connection) {
         socket = connection;
         connection.listen((message) {
           final request = jsonDecode(message as String) as Map<String, dynamic>;
+          if (request['type'] == 'create_room') {
+            createPayload = request['payload'] as Map<String, dynamic>;
+          } else if (request['type'] == 'join_room') {
+            joinPayload = request['payload'] as Map<String, dynamic>;
+          }
           final responsePlayers = request['type'] == 'set_ready'
               ? [
                   {'id': 'player-1', 'name': 'Ana', 'ready': true},
@@ -53,6 +60,9 @@ void main() {
         await server.close(force: true);
       });
       await service.createRoom(mapId: 3, playerName: 'Ana');
+      expect(createPayload?['maxPlayers'], MultiplayerService.maxPlayers);
+      await service.joinRoom(code: 'abc123', playerName: 'Ana');
+      expect(joinPayload?['maxPlayers'], MultiplayerService.maxPlayers);
 
       await service.setReady(true);
       expect(service.players.first.ready, isTrue);
@@ -200,6 +210,7 @@ void main() {
       await completedGame;
       expect(service.winnerName, 'Ana');
       expect(service.winnerPlayerId, 'player-1');
+      expect(service.scores.map((score) => score.total), [21, 17]);
 
       final nextGame = _waitForNextNotification(service);
       socket.add(jsonEncode({'type': 'game_started', 'data': {}}));
@@ -227,6 +238,7 @@ void main() {
       expect(service.gameStarted, isFalse);
       expect(service.assignments, isEmpty);
       expect(service.dice, isEmpty);
+      expect(service.scores.map((score) => score.total), [21, 17]);
     },
   );
 }

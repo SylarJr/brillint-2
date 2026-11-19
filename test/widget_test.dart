@@ -331,7 +331,9 @@ void main() {
     await tester.ensureVisible(tarjeta);
     await tester.tap(tarjeta);
     await tester.pumpAndSettle();
+
     expect(find.text('Lobby'), findsOneWidget);
+    expect(find.text('JUGADORES (2/6)'), findsOneWidget);
 
     final listo = find.byKey(const ValueKey('boton-listo-para-empezar'));
     await tester.scrollUntilVisible(
@@ -737,8 +739,6 @@ class _FakeMultiplayerService extends MultiplayerService {
     diceRollId = 0;
     dice = const [];
     assignments = const {};
-    scores = const [];
-    zoneWinners = const [];
     notifyListeners();
   }
 

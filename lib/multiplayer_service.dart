@@ -66,6 +66,7 @@ class MultiplayerService extends ChangeNotifier {
   });
 
   static const _requestTimeout = Duration(seconds: 12);
+  static const maxPlayers = 6;
 
   final String serverUrl;
   final Map<String, Completer<Map<String, Object?>>> _pendingRequests = {};
@@ -101,6 +102,7 @@ class MultiplayerService extends ChangeNotifier {
     final data = await _request('create_room', {
       'mapId': mapId,
       'playerName': playerName,
+      'maxPlayers': maxPlayers,
     });
     this.mapId = mapId;
     _applyRoomData(data);
@@ -149,6 +151,7 @@ class MultiplayerService extends ChangeNotifier {
     final data = await _request('join_room', {
       'code': code.trim().toUpperCase(),
       'playerName': playerName,
+      'maxPlayers': maxPlayers,
     });
     _applyRoomData(data);
   }
@@ -314,8 +317,6 @@ class MultiplayerService extends ChangeNotifier {
             diceRollId = 0;
             dice = const [];
             assignments = const {};
-            scores = const [];
-            zoneWinners = const [];
           }
           notifyListeners();
         case 'error':
